@@ -1,3 +1,3 @@
-# Copyright (c) 2009-2012 VMware, Inc.
+# Copyright (c) 2013 Tier 3, Inc.
 
-require "cloud/aws"
+require "cloud/tier3"
