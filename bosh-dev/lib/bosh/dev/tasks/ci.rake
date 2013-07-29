@@ -1,4 +1,12 @@
 namespace :ci do
+  namespace :run do
+    desc 'Meta task to run spec:unit and rubocop'
+    task unit: %w(rubocop spec:unit)
+
+    desc 'Meta task to run spec:integration'
+    task integration: %w(spec:integration)
+  end
+
   desc 'Publish CI pipeline gems to S3'
   task :publish_pipeline_gems do
     require 'bosh/dev/gems_generator'
@@ -7,7 +15,7 @@ namespace :ci do
   end
 
   desc 'Publish CI pipeline MicroBOSH release to S3'
-  task :publish_microbosh_release => [:publish_pipeline_gems] do
+  task publish_microbosh_release: [:publish_pipeline_gems] do
     require 'bosh/dev/build'
     require 'bosh/dev/micro_bosh_release'
 

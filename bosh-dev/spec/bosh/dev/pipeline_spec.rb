@@ -3,6 +3,7 @@ require 'bosh/dev/pipeline'
 require 'bosh/dev/stemcell'
 require 'bosh/dev/build'
 require 'fakefs/spec_helpers'
+require 'bosh/dev/infrastructure'
 
 module Bosh::Dev
   describe Pipeline do
@@ -77,9 +78,7 @@ module Bosh::Dev
         let(:bucket_name) { false }
 
         it 'raises an error' do
-          expect {
-            pipeline.create({})
-          }.to raise_error("bucket 'bosh-ci-pipeline' not found")
+          expect { pipeline.create({}) }.to raise_error("bucket 'bosh-ci-pipeline' not found")
         end
       end
     end
@@ -90,7 +89,7 @@ module Bosh::Dev
       end
 
       it 'uploads the file to the specific path on the pipeline bucket' do
-        logger.should_receive(:info).with("uploaded to s3://bosh-ci-pipeline/456/foo-bar.tgz")
+        logger.should_receive(:info).with('uploaded to s3://bosh-ci-pipeline/456/foo-bar.tgz')
 
         pipeline.s3_upload('foobar-path', 'foo-bar.tgz')
         expect(bucket_files.map(&:key)).to include '456/foo-bar.tgz'
@@ -112,7 +111,7 @@ module Bosh::Dev
         let(:stemcell) { instance_double('Stemcell', light?: false, path: '/tmp/bosh-stemcell-aws.tgz', infrastructure: 'aws', name: 'bosh-stemcell') }
 
         it 'publishes a stemcell to an S3 bucket' do
-          logger.should_receive(:info).with("uploaded to s3://bosh-ci-pipeline/456/bosh-stemcell/aws/bosh-stemcell-aws.tgz")
+          logger.should_receive(:info).with('uploaded to s3://bosh-ci-pipeline/456/bosh-stemcell/aws/bosh-stemcell-aws.tgz')
 
           pipeline.publish_stemcell(stemcell)
 
@@ -121,7 +120,7 @@ module Bosh::Dev
         end
 
         it 'updates the latest stemcell in the S3 bucket' do
-          logger.should_receive(:info).with("uploaded to s3://bosh-ci-pipeline/456/bosh-stemcell/aws/latest-bosh-stemcell-aws.tgz")
+          logger.should_receive(:info).with('uploaded to s3://bosh-ci-pipeline/456/bosh-stemcell/aws/latest-bosh-stemcell-aws.tgz')
 
           pipeline.publish_stemcell(stemcell)
 
@@ -159,15 +158,15 @@ module Bosh::Dev
       it 'downloads the specified stemcell version from the pipeline bucket' do
         logger.should_receive(:info).with("downloaded 's3://bosh-ci-pipeline/456/bosh-stemcell/aws/bosh-stemcell-aws-123.tgz' -> 'bosh-stemcell-aws-123.tgz'")
 
-        pipeline.download_stemcell('123', infrastructure: 'aws', name: 'bosh-stemcell', light: false)
+        pipeline.download_stemcell('123', infrastructure: Infrastructure.for('aws'), name: 'bosh-stemcell', light: false)
         expect(File.read('bosh-stemcell-aws-123.tgz')).to eq 'this is a thinga-ma-jiggy'
       end
 
       context 'when remote file does not exist' do
         it 'raises' do
           expect {
-            pipeline.download_stemcell('does', infrastructure: 'not', name: 'exist', light: false)
-          }.to raise_error("remote stemcell 'exist-not-does.tgz' not found")
+            pipeline.download_stemcell('888', infrastructure: Infrastructure.for('vsphere'), name: 'fooey', light: false)
+          }.to raise_error("remote stemcell 'fooey-vsphere-888.tgz' not found")
         end
 
       end
@@ -175,13 +174,13 @@ module Bosh::Dev
       it 'downloads the specified light stemcell version from the pipeline bucket' do
         logger.should_receive(:info).with("downloaded 's3://bosh-ci-pipeline/456/bosh-stemcell/aws/light-bosh-stemcell-aws-123.tgz' -> 'light-bosh-stemcell-aws-123.tgz'")
 
-        pipeline.download_stemcell('123', infrastructure: 'aws', name: 'bosh-stemcell', light: true)
+        pipeline.download_stemcell('123', infrastructure: Infrastructure.for('aws'), name: 'bosh-stemcell', light: true)
         expect(File.read('light-bosh-stemcell-aws-123.tgz')).to eq 'this a completely different thingy'
       end
     end
 
     describe '#bosh_stemcell_path' do
-      let(:infrastructure) { instance_double('Bosh::Dev::Infrastructure', name: 'aws', light?: true) }
+      let(:infrastructure) { Bosh::Dev::Infrastructure::Aws.new }
 
       it 'works' do
         expect(subject.bosh_stemcell_path(infrastructure)).to eq('/FAKE/WORKSPACE/DIR/light-bosh-stemcell-aws-456.tgz')
@@ -189,15 +188,15 @@ module Bosh::Dev
     end
 
     describe '#micro_bosh_stemcell_path' do
-      let(:infrastructure) { instance_double('Bosh::Dev::Infrastructure', name: 'openstack', light?: false) }
+      let(:infrastructure) { Bosh::Dev::Infrastructure::Vsphere.new }
 
       it 'works' do
-        expect(subject.micro_bosh_stemcell_path(infrastructure)).to eq('/FAKE/WORKSPACE/DIR/micro-bosh-stemcell-openstack-456.tgz')
+        expect(subject.micro_bosh_stemcell_path(infrastructure)).to eq('/FAKE/WORKSPACE/DIR/micro-bosh-stemcell-vsphere-456.tgz')
       end
     end
 
     describe '#fetch_stemcells' do
-      let(:infrastructure) { instance_double('Bosh::Dev::Infrastructure', name: 'aws', light?: true) }
+      let(:infrastructure) { Bosh::Dev::Infrastructure::Aws.new }
 
       context 'when micro and bosh stemcells exist for infrastructure' do
         before do
@@ -218,6 +217,50 @@ module Bosh::Dev
           expect {
             pipeline.fetch_stemcells(infrastructure)
           }.to raise_error("remote stemcell 'light-micro-bosh-stemcell-aws-456.tgz' not found")
+        end
+      end
+    end
+
+    describe '#stemcell_filename' do
+      subject(:stemcell_filename) { pipeline.stemcell_filename(version, infrastructure, 'bosh-stemcell', false) }
+
+      context 'when the infrastructure has a hypervisor' do
+        let(:infrastructure) { Infrastructure::OpenStack.new }
+
+        context 'and the version is a build number' do
+          let(:version) { 123 }
+
+          it 'ends with the infrastructure, hypervisor and build number' do
+            expect(stemcell_filename).to eq('bosh-stemcell-openstack-kvm-123.tgz')
+          end
+        end
+
+        context 'and the version is latest' do
+          let(:version) { 'latest' }
+
+          it 'begins with latest and ends with the infrastructure' do
+            expect(stemcell_filename).to eq('latest-bosh-stemcell-openstack.tgz')
+          end
+        end
+      end
+
+      context 'when the infrastructure does not have a hypervisor' do
+        let(:infrastructure) { Infrastructure::Aws.new }
+
+        context 'and the version is a build number' do
+          let(:version) { 123 }
+
+          it 'ends with the infrastructure and build number' do
+            expect(stemcell_filename).to eq('bosh-stemcell-aws-123.tgz')
+          end
+        end
+
+        context 'and the version is latest' do
+          let(:version) { 'latest' }
+
+          it 'begins with latest and ends with the infrastructure' do
+            expect(stemcell_filename).to eq('latest-bosh-stemcell-aws.tgz')
+          end
         end
       end
     end

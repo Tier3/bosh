@@ -5,16 +5,16 @@ module Bosh::Dev
   class Pipeline
     attr_reader :fog_storage
 
-    def initialize(options={})
+    def initialize(options = {})
       @fog_storage = options.fetch(:fog_storage) do
         fog_options = {
-            provider: 'AWS',
-            aws_access_key_id: ENV.to_hash.fetch('AWS_ACCESS_KEY_ID_FOR_STEMCELLS_JENKINS_ACCOUNT'),
-            aws_secret_access_key: ENV.to_hash.fetch('AWS_SECRET_ACCESS_KEY_FOR_STEMCELLS_JENKINS_ACCOUNT')
+          provider: 'AWS',
+          aws_access_key_id: ENV.to_hash.fetch('AWS_ACCESS_KEY_ID_FOR_STEMCELLS_JENKINS_ACCOUNT'),
+          aws_secret_access_key: ENV.to_hash.fetch('AWS_SECRET_ACCESS_KEY_FOR_STEMCELLS_JENKINS_ACCOUNT')
         }
         Fog::Storage.new(fog_options)
       end
-      @build_id =  options.fetch(:build_id) { Build.candidate.number.to_s }
+      @build_id = options.fetch(:build_id) { Build.candidate.number.to_s }
       @logger = options.fetch(:logger) { Logger.new($stdout) }
       @bucket = 'bosh-ci-pipeline'
       @workspace_dir = ENV.to_hash.fetch('WORKSPACE')
@@ -22,15 +22,15 @@ module Bosh::Dev
 
     def create(options)
       uploaded_file = base_directory.files.create(
-          key: File.join(build_id, options.fetch(:key)),
-          body: options.fetch(:body),
-          public: options.fetch(:public)
+        key: File.join(build_id, options.fetch(:key)),
+        body: options.fetch(:body),
+        public: options.fetch(:public)
       )
       logger.info("uploaded to #{uploaded_file.public_url || File.join(s3_url, options.fetch(:key))}")
     end
 
     def publish_stemcell(stemcell)
-      latest_filename = stemcell_filename('latest', stemcell.infrastructure, stemcell.name, stemcell.light?)
+      latest_filename = stemcell_filename('latest', Infrastructure.for(stemcell.infrastructure), stemcell.name, stemcell.light?)
       s3_latest_path = File.join(stemcell.name, stemcell.infrastructure, latest_filename)
 
       s3_path = File.join(stemcell.name, stemcell.infrastructure, File.basename(stemcell.path))
@@ -46,7 +46,7 @@ module Bosh::Dev
       create(key: remote_path, body: File.open(file), public: false)
     end
 
-    def download_stemcell(version, options={})
+    def download_stemcell(version, options = {})
       infrastructure = options.fetch(:infrastructure)
       name = options.fetch(:name)
       light = options.fetch(:light)
@@ -54,7 +54,7 @@ module Bosh::Dev
       filename = stemcell_filename(version, infrastructure, name, light)
       bucket_files = fog_storage.directories.get(bucket).files
 
-      remote_path = File.join(build_id, name, infrastructure, filename)
+      remote_path = File.join(build_id, name, infrastructure.name, filename)
       raise "remote stemcell '#{filename}' not found" unless  bucket_files.head(remote_path)
 
       File.open(filename, 'w') do |file|
@@ -66,15 +66,16 @@ module Bosh::Dev
       logger.info("downloaded 's3://#{bucket}/#{remote_path}' -> '#{filename}'")
     end
 
-    def stemcell_filename(version, infrastructure_name, name, light)
+    def stemcell_filename(version, infrastructure, name, light)
       stemcell_filename_parts = []
       stemcell_filename_parts << version if version == 'latest'
       stemcell_filename_parts << 'light' if light
       stemcell_filename_parts << name
-      stemcell_filename_parts << infrastructure_name
+      stemcell_filename_parts << infrastructure.name
+      stemcell_filename_parts << infrastructure.hypervisor unless version == 'latest'
       stemcell_filename_parts << version unless version == 'latest'
 
-      "#{stemcell_filename_parts.join('-')}.tgz"
+      "#{stemcell_filename_parts.compact.join('-')}.tgz"
     end
 
     def s3_url
@@ -82,16 +83,16 @@ module Bosh::Dev
     end
 
     def bosh_stemcell_path(infrastructure)
-      File.join(workspace_dir, stemcell_filename(build_id, infrastructure.name, 'bosh-stemcell', infrastructure.light?))
+      File.join(workspace_dir, stemcell_filename(build_id, infrastructure, 'bosh-stemcell', infrastructure.light?))
     end
 
     def micro_bosh_stemcell_path(infrastructure)
-      File.join(workspace_dir, stemcell_filename(build_id, infrastructure.name, 'micro-bosh-stemcell', infrastructure.light?))
+      File.join(workspace_dir, stemcell_filename(build_id, infrastructure, 'micro-bosh-stemcell', infrastructure.light?))
     end
 
     def fetch_stemcells(infrastructure)
-      download_stemcell(build_id, infrastructure: infrastructure.name, name: 'micro-bosh-stemcell', light: infrastructure.light?)
-      download_stemcell(build_id, infrastructure: infrastructure.name, name: 'bosh-stemcell', light: infrastructure.light?)
+      download_stemcell(build_id, infrastructure: infrastructure, name: 'micro-bosh-stemcell', light: infrastructure.light?)
+      download_stemcell(build_id, infrastructure: infrastructure, name: 'bosh-stemcell', light: infrastructure.light?)
     end
 
     def cleanup_stemcells
@@ -103,7 +104,7 @@ module Bosh::Dev
     attr_reader :logger, :bucket, :build_id, :workspace_dir
 
     def base_directory
-      fog_storage.directories.get(bucket) or raise "bucket '#{bucket}' not found"
+      fog_storage.directories.get(bucket) || raise("bucket '#{bucket}' not found")
     end
   end
 end
