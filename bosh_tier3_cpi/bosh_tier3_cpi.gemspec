@@ -14,13 +14,12 @@ Gem::Specification.new do |s|
   s.email        = "support@tier3.com"
   s.required_ruby_version = Gem::Requirement.new(">= 1.9.3")
 
-  s.files        = `git ls-files -- bin/* lib/* scripts/*`.split("\n") + %w(README.md)
+  s.files        = `git ls-files -- bin/* lib/*`.split("\n") + %w(README.md)
   s.require_path = "lib"
   s.bindir       = "bin"
   s.executables  = %w(bosh_tier3_console)
 
   s.add_dependency "bosh_common", "~>#{version}"
   s.add_dependency "bosh_cpi", "~>#{version}"
-  s.add_dependency "bosh_registry", "~>#{version}"
   s.add_dependency "rest-client"
 end

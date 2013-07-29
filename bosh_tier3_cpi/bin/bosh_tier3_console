@@ -1,12 +1,12 @@
 #!/usr/bin/env ruby
 
-# Copyright (c) 2009-2012 VMware, Inc.
+# Copyright (c) 2013 Tier 3, Inc.
 
 # Usage example:
-# irb(main):001:0> cpi.create_vm("test", "ami-809a48e9",
+# irb(main):001:0> cpi.create_vm("test", "UBUNTU-10-64-BOSH-TEMPLATE",
 #                  {"instance_type" => "m1.small"}, {}, [], {"foo" =>"bar"})
 
-require "bosh_aws_cpi"
+require "bosh_tier3_cpi"
 require "irb"
 require "irb/completion"
 require "ostruct"
@@ -29,15 +29,7 @@ end
 
 module ConsoleHelpers
   def cpi
-    @cpi ||= Bosh::AwsCloud::Cloud.new(@config)
-  end
-
-  def ec2
-    cpi.ec2
-  end
-
-  def registry
-    cpi.registry
+    @cpi ||= Bosh::Tier3Cloud::Cloud.new(@config)
   end
 end
 
@@ -54,7 +46,7 @@ rescue LoadError
   puts "=> ruby-debug not found, debugger disabled"
 end
 
-puts "=> Welcome to BOSH AWS CPI console"
+puts "=> Welcome to BOSH Tier3 CPI console"
 puts "You can use 'cpi' to access CPI methods"
 
 IRB.start
