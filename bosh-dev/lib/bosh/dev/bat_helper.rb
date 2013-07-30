@@ -11,11 +11,11 @@ module Bosh::Dev
     end
 
     def bosh_stemcell_path
-      pipeline.bosh_stemcell_path(infrastructure)
+      pipeline.bosh_stemcell_path(infrastructure, artifacts_dir)
     end
 
     def micro_bosh_stemcell_path
-      pipeline.micro_bosh_stemcell_path(infrastructure)
+      pipeline.micro_bosh_stemcell_path(infrastructure, artifacts_dir)
     end
 
     def artifacts_dir
@@ -31,19 +31,31 @@ module Bosh::Dev
     end
 
     def run_rake
-      ENV['BAT_INFRASTRUCTURE'] = infrastructure.name
+      infrastructure_for_emitable_example
 
-      begin
-        pipeline.fetch_stemcells(infrastructure)
+      sanitize_directories
 
-        infrastructure.run_system_micro_tests
-      ensure
-        pipeline.cleanup_stemcells
-      end
+      prepare_directories
+
+      pipeline.fetch_stemcells(infrastructure, artifacts_dir)
+
+      infrastructure.run_system_micro_tests
     end
 
     private
 
     attr_reader :pipeline
+
+    def infrastructure_for_emitable_example
+      ENV['BAT_INFRASTRUCTURE'] = infrastructure.name
+    end
+
+    def sanitize_directories
+      FileUtils.rm_rf(artifacts_dir, verbose: true)
+    end
+
+    def prepare_directories
+      FileUtils.mkdir_p(micro_bosh_deployment_dir, verbose: true)
+    end
   end
 end

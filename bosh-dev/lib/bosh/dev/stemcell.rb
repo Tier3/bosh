@@ -1,15 +1,10 @@
-require 'rake'
+require 'rake/file_utils'
 require 'yaml'
 require 'bosh/dev/ami'
 
 module Bosh::Dev
   class Stemcell
     DEFAULT_AWS_AMI_REGION = 'us-east-1'
-
-    def self.from_jenkins_build(infrastructure, type, build)
-      mnt = ENV.fetch('FAKE_MNT', '/mnt') # Temporarily duplicates #mnt in spec.rake
-      new(Dir.glob("#{mnt}/stemcells/#{infrastructure}-#{type}/work/work/*-stemcell-*-#{build.number}.tgz").first)
-    end
 
     attr_reader :path
 
@@ -71,13 +66,13 @@ module Bosh::Dev
         Dir.chdir(extracted_stemcell_dir) do
           stemcell_manifest['cloud_properties']['ami'] = { ami.region => ami_id }
 
-          FileUtils.touch('image')
+          FileUtils.touch('image', verbose: true)
 
           File.open('stemcell.MF', 'w') do |out|
             Psych.dump(stemcell_manifest, out)
           end
 
-          Rake::FileUtilsExt.sh("tar cvzf #{light_stemcell_path} *")
+          Rake::FileUtilsExt.sh("sudo tar cvzf #{light_stemcell_path} *")
         end
       end
       light_stemcell_path

@@ -1,8 +1,6 @@
 require 'spec_helper'
-require 'fakefs/spec_helpers'
+
 require 'bosh/dev/stemcell'
-require 'bosh/dev/ami'
-require 'bosh/dev/build'
 
 module Bosh
   module Dev
@@ -10,15 +8,6 @@ module Bosh
       let(:stemcell_path) { spec_asset('micro-bosh-stemcell-aws.tgz') }
 
       subject { Stemcell.new(stemcell_path) }
-
-      describe '.from_jenkins_build' do
-        it 'constructs correct jenkins path' do
-          Stemcell.stub(:new)
-          Dir.should_receive(:glob).with('/mnt/stemcells/aws-micro/work/work/*-stemcell-*-123.tgz').and_return([])
-
-          Stemcell.from_jenkins_build('aws', 'micro', double(Build, number: 123))
-        end
-      end
 
       describe '#initialize' do
         it 'errors if path does not exist' do
@@ -116,6 +105,7 @@ module Bosh
         before do
           Ami.stub(new: ami)
           Rake::FileUtilsExt.stub(:sh)
+          FileUtils.stub(:touch)
         end
 
         it 'creates an ami from the stemcell' do
@@ -130,16 +120,18 @@ module Bosh
           end
 
           expected_tarfile = File.join(File.dirname(subject.path), 'light-micro-bosh-stemcell-aws.tgz')
+
           Rake::FileUtilsExt.should_receive(:sh) do |command|
-            command.should match(/tar cvzf #{expected_tarfile} \*/)
+            command.should match(/sudo tar cvzf #{expected_tarfile} \*/)
           end
 
           subject.create_light_stemcell
         end
 
         it 'replaces the raw image with a blank placeholder' do
-          FileUtils.should_receive(:touch).and_return do |file|
+          FileUtils.should_receive(:touch).and_return do |file, options|
             expect(file).to match('image')
+            expect(options).to eq(verbose: true)
           end
           subject.create_light_stemcell
         end
@@ -153,7 +145,6 @@ module Bosh
         end
 
         it 'names the stemcell manifest correctly' do
-          FileUtils.stub(:touch)
           # Example fails on linux without File.stub
           File.stub(:open).and_call_original
           File.should_receive(:open).with('stemcell.MF', 'w')
