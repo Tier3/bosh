@@ -11,14 +11,15 @@ namespace :spec do
   end
 
   desc 'Run unit and functional tests for each BOSH component gem'
-  task :parallel_unit do
+  task :parallel_unit, [:pattern] do |t, args|
+    args.with_defaults(:pattern => '*')
     require 'common/thread_pool'
 
     trap('INT') do
       exit
     end
     
-    builds = Dir['*'].select { |f| File.directory?(f) && File.exists?("#{f}/spec") }
+    builds = Dir[args.pattern].select { |f| File.directory?(f) && File.exists?("#{f}/spec") }
     builds -= ['bat']
 
     spec_logs = Dir.mktmpdir
@@ -47,8 +48,9 @@ namespace :spec do
   end
 
   desc 'Run unit and functional tests linearly'
-  task :unit do
-    builds = Dir['*'].select { |f| File.directory?(f) && File.exists?("#{f}/spec") }
+  task :unit, [:pattern] do |t, args|
+    args.with_defaults(:pattern => '*')
+    builds = Dir[args.pattern].select { |f| File.directory?(f) && File.exists?("#{f}/spec") }
     builds -= ['bat']
 
     builds.each do |build|
