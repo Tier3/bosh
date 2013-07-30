@@ -24,38 +24,42 @@ module Bosh::Tier3Cloud
     # Reads current vm name.
     #
     def current_vm_id
-      # TODO build vm id - hostname?
+      begin
+        Socket.gethostname
+      rescue => e
+        logger.error(e)
+        raise
+      end
     end
 
     ##
     # Returns name of well-known stemcell template
+    # Since the stemcell template will be uploaded and available in advance,
+    # this just checks to see if the 
     #
-    # @param [String] image_path local filesystem path to a stemcell image
-    # @param [Hash] cloud_properties Tier3-specific stemcell properties
-    # @option cloud_properties [String] kernel_id
-    #   AKI, auto-selected based on the region, unless specified
-    # @option cloud_properties [String] root_device_name
-    #   block device path (e.g. /dev/sda1), provided by the stemcell manifest, unless specified
-    # @option cloud_properties [String] architecture
-    #   instruction set architecture (e.g. x86_64), provided by the stemcell manifest,
-    #   unless specified
-    # @option cloud_properties [String] disk (2048)
-    #   root disk size
-    # @return [String] EC2 AMI name of the stemcell
+    # @param [String] image_path - Tier 3 ignored
+    # @param [Hash] stemcell_properties - Tier 3 ignored
+    # @return [String] name of the stemcell (VM template name)
     def create_stemcell(image_path, stemcell_properties)
       with_thread_name("create_stemcell(#{image_path}...)") do
         begin
+          logger.debug("create_stemcell(#{image_path}, #{stemcell_properties.inspect}")
+          template_name = api_properties['template']
+          if has_vm?(template_name)
+            template_name
+          else
+            nil # TODO correct return for not found?
+          end
         rescue => e
           logger.error(e)
-          raise e
-        ensure
+          raise
         end
       end
     end
 
     # Delete a stemcell and the accompanying snapshots
     # @param [String] stemcell_id
-    # NB: this is a no-op
+    # NB: this is a no-op in Tier 3 CPI
     def delete_stemcell(stemcell_id)
       with_thread_name("delete_stemcell(#{stemcell_id})") do
         logger.info(%Q[delete_stemcell: no-op])
@@ -64,12 +68,10 @@ module Bosh::Tier3Cloud
 
     ##
     # Create an VM and wait until it's in running state
-    # @param [String] agent_id agent id associated with new VM
-    # @param [String] stemcell_id AMI id of the stemcell used to
-    #  create the new instance
-    # @param [Hash] resource_pool resource pool specification
-    # @param [Hash] network_spec network specification, if it contains
-    #  security groups they must already exist
+    # @param [String] agent_id - agent id associated with new VM
+    # @param [String] stemcell_id - Template name to create new instance
+    # @param [Hash] resource_pool - resource pool specification (TODO unused?)
+    # @param [Hash] network_spec - network specification (TODO unused?)
     # @param [optional, Array] disk_locality list of disks that
     #   might be attached to this instance in the future, can be
     #   used as a placement hint (i.e. instance will only be created
@@ -82,12 +84,70 @@ module Bosh::Tier3Cloud
     #
     def create_vm(agent_id, stemcell_id, resource_pool, network_spec, disk_locality = nil, environment = nil)
       with_thread_name("create_vm(#{agent_id}, ...)") do
+
         begin
-          # TODO
+
+          vm_alias = ('A'..'Z').to_a.shuffle[0,6].join
+          logger.debug("create_vm(#{agent_id}, ...) Alias: #{vm_alias}")
+
+          data = {
+            Template: stemcell_id,
+            Alias: vm_alias, # NB: 6 chars max
+            HardwareGroupID: api_properties['group-id'],
+            ServerType: 1, # TODO how to customize?
+            ServiceLevel: 2, # TODO how to customize?
+            CPU: 2, # TODO how to customize? cloud_properties['cpu']
+            MemoryGB: 4, # TODO
+            # ExtraDriveGB: TODO
+          }
+
+          response = rest_request('/server/createserver/json', :post, data)
+          resp_data = JSON.parse(response)
+
+          success = resp_data['Success']
+          request_id = resp_data['RequestID']
+
+          created_vm_name = nil
+
+          if success and request_id > 0
+
+            data = { RequestID: request_id }
+
+            # errors = [] array of exception classes that we can retry on TODO
+            Bosh::Common.retryable(sleep: 30, tries: 10) do |tries, error|
+
+              response = rest_request('/blueprint/getblueprintstatus/json', :post, data)
+              resp_data = JSON.parse(response)
+
+              success = resp_data['Success']
+              current_status = resp_data['CurrentStatus']
+              description = resp_data['Description']
+
+              unless success
+                @logger.error("Error waiting for create server request ID: #{request_id}, error: #{description}")
+                return true # stop the retries
+              end
+
+              unless current_status == 'Succeeded' or current_status == 'Failed'
+                @logger.warn("Wating on request ID: #{request_id}") if tries > 0
+                return false # keep retrying
+              else
+                servers = resp_data['Servers']
+                created_vm_name = servers.first
+                @logger.info("Completed request ID: #{request_id}, VM name: #{created_vm_name}")
+                return true
+              end
+
+            end
+          end
+
+          created_vm_name
+
         rescue => e # is this rescuing too much?
           logger.error(%Q[Failed to create instance: #{e.message}\n#{e.backtrace.join("\n")}])
-          raise e
+          raise
         end
+
       end
     end
 
@@ -111,7 +171,16 @@ module Bosh::Tier3Cloud
         # TODO exceptions? check HTTP code?
         response = rest_request('/server/getserver/json', :post, data)
         resp_data = JSON.parse(response)
-        return resp_data['Server']['ID'] > 0
+        if resp_data.has_key?('Server')
+          server = resp_data['Server']
+          if not server.nil? and server.has_key?('ID')
+            server['ID'] > 0
+          else
+            false
+          end
+        else
+          false
+        end
       end
     end
 
@@ -251,7 +320,7 @@ module Bosh::Tier3Cloud
     def validate_options
 
       required_keys = {
-          'api' => ['url', 'key', 'password', 'template']
+          'api' => ['url', 'key', 'password', 'template', 'group-id']
       }
 
       missing_keys = []

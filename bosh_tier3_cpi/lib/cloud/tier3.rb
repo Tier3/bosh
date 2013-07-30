@@ -6,6 +6,7 @@ end
 
 require 'rest-client'
 require 'json'
+require 'socket'
 
 require 'common/exec'
 require 'common/thread_pool'
