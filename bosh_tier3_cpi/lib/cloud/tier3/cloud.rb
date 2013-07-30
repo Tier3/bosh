@@ -129,7 +129,7 @@ module Bosh::Tier3Cloud
 
           created_vm_name = nil
 
-          response = rest_request('/server/createserver/json', :post, data)
+          response = @client.post('/server/createserver/json', data)
           resp_data = JSON.parse(response)
 
           success = resp_data['Success']
@@ -165,7 +165,7 @@ module Bosh::Tier3Cloud
 
           data = { Name: instance_id }
 
-          response = rest_request('/server/deleteserver/json', :post, data)
+          response = @client.post('/server/deleteserver/json', data)
           resp_data = JSON.parse(response)
 
           success = resp_data['Success']
@@ -221,7 +221,7 @@ module Bosh::Tier3Cloud
 
           data = { Name: instance_id }
 
-          response = rest_request('/server/rebootserver/json', :post, data)
+          response = @client.post('/server/rebootserver/json', data)
 
           resp_data = JSON.parse(response)
 
