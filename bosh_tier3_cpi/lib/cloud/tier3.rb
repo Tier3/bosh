@@ -8,6 +8,7 @@ require 'rest-client'
 require 'json'
 require 'socket'
 
+require 'common/common'
 require 'common/exec'
 require 'common/thread_pool'
 require 'common/thread_formatter'

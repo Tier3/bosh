@@ -87,8 +87,10 @@ module Bosh::Tier3Cloud
 
         begin
 
+          hardware_group_id = api_properties['group-id']
+
           vm_alias = ('A'..'Z').to_a.shuffle[0,6].join
-          logger.debug("create_vm(#{agent_id}, ...) Alias: #{vm_alias}")
+          logger.debug("create_vm(#{agent_id}, ...) Template: #{stemcell_id} Alias: #{vm_alias} Hardware group ID: #{hardware_group_id}")
 
           data = {
             Template: stemcell_id,
@@ -101,50 +103,36 @@ module Bosh::Tier3Cloud
             # ExtraDriveGB: TODO
           }
 
+          if api_properties.has_key?('account-alias')
+            data['AccountAlias'] = api_properties['account-alias']
+          end
+          if api_properties.has_key?('location-alias')
+            data['LocationAlias'] = api_properties['location-alias']
+          end
+          if api_properties.has_key?('network')
+            data['Network'] = api_properties['network']
+          end
+
+          created_vm_name = nil
+
           response = rest_request('/server/createserver/json', :post, data)
           resp_data = JSON.parse(response)
 
           success = resp_data['Success']
           request_id = resp_data['RequestID']
 
-          created_vm_name = nil
-
           if success and request_id > 0
-
-            data = { RequestID: request_id }
-
-            # errors = [] array of exception classes that we can retry on TODO
-            Bosh::Common.retryable(sleep: 30, tries: 10) do |tries, error|
-
-              response = rest_request('/blueprint/getblueprintstatus/json', :post, data)
-              resp_data = JSON.parse(response)
-
-              success = resp_data['Success']
-              current_status = resp_data['CurrentStatus']
-              description = resp_data['Description']
-
-              unless success
-                @logger.error("Error waiting for create server request ID: #{request_id}, error: #{description}")
-                return true # stop the retries
-              end
-
-              unless current_status == 'Succeeded' or current_status == 'Failed'
-                @logger.warn("Wating on request ID: #{request_id}") if tries > 0
-                return false # keep retrying
-              else
-                servers = resp_data['Servers']
-                created_vm_name = servers.first
-                @logger.info("Completed request ID: #{request_id}, VM name: #{created_vm_name}")
-                return true
-              end
-
-            end
+            wait_for(request_id)
+          else
+            status_code = resp_data['StatusCode']
+            message = resp_data['Message']
+            @logger.error("Error creating VM: #{message} status code: #{status_code}")
           end
 
           created_vm_name
 
         rescue => e # is this rescuing too much?
-          logger.error(%Q[Failed to create instance: #{e.message}\n#{e.backtrace.join("\n")}])
+          logger.error(%Q[Failed to create VM: #{e.message}\n#{e.backtrace.join("\n")}])
           raise
         end
 
@@ -157,7 +145,30 @@ module Bosh::Tier3Cloud
     def delete_vm(instance_id)
       with_thread_name("delete_vm(#{instance_id})") do
         logger.info("Deleting VM '#{instance_id}'")
-        # TODO
+        begin
+
+          logger.debug("delete_vm(#{instance_id})")
+
+          data = { Name: instance_id }
+
+          response = rest_request('/server/deleteserver/json', :post, data)
+          resp_data = JSON.parse(response)
+
+          success = resp_data['Success']
+          request_id = resp_data['RequestID']
+
+          if success and request_id > 0
+            wait_for(request_id)
+          else
+            status_code = resp_data['StatusCode']
+            message = resp_data['Message']
+            @logger.error("Error deleting VM: #{message} status code: #{status_code}")
+          end
+
+        rescue => e # is this rescuing too much?
+          logger.error(%Q[Failed to delete VM: #{e.message}\n#{e.backtrace.join("\n")}])
+          raise
+        end
       end
     end
 
@@ -189,7 +200,32 @@ module Bosh::Tier3Cloud
     # @param [String] Name of VM
     def reboot_vm(instance_id)
       with_thread_name("reboot_vm(#{instance_id})") do
-        # TODO
+        logger.info("Rebooting VM '#{instance_id}'")
+        begin
+
+          logger.debug("reboot_vm(#{instance_id})")
+
+          data = { Name: instance_id }
+
+          response = rest_request('/server/rebootserver/json', :post, data)
+
+          resp_data = JSON.parse(response)
+
+          success = resp_data['Success']
+          request_id = resp_data['RequestID']
+
+          if success and request_id > 0
+            wait_for(request_id)
+          else
+            status_code = resp_data['StatusCode']
+            message = resp_data['Message']
+            @logger.error("Error rebooting VM: #{message} status code: #{status_code}")
+          end
+
+        rescue => e # is this rescuing too much?
+          logger.error(%Q[Failed to reboot VM: #{e.message}\n#{e.backtrace.join("\n")}])
+          raise
+        end
       end
     end
 
@@ -197,7 +233,7 @@ module Bosh::Tier3Cloud
     # @param [Hash] metadata metadata key/value pairs
     # @return [void]
     def set_vm_metadata(vm, metadata)
-      # TODO use VMware metadata like vsphere?
+      # TODO use VMware metadata like vsphere attributes?
     end
 
     # Configure network. NB: this is a no-op for Tier 3 platform
@@ -206,8 +242,8 @@ module Bosh::Tier3Cloud
     # @raise [Bosh::Clouds:NotSupported] if there's a network change that requires the recreation of the VM
     def configure_networks(instance_id, network_spec)
       with_thread_name("configure_networks(#{instance_id}, ...)") do
-        logger.info("Configuring '#{instance_id}' to use new network settings: #{network_spec.pretty_inspect}")
-        # TODO should be no-op
+        logger.info("Configuring '#{instance_id}' to use new network settings: #{network_spec.pretty_inspect}. This is a NO-OP")
+        # TODO should be no-op? Unknown.
       end
     end
 
@@ -222,9 +258,7 @@ module Bosh::Tier3Cloud
         raise ArgumentError, "disk size needs to be an integer" unless size.kind_of?(Integer)
         cloud_error("Tier3 CPI minimum disk size is 1 GiB") if size < 1024
         cloud_error("Tier3 CPI maximum disk size is 1 TiB") if size > 1024 * 1000
-
-        logger.info("Creating volume '#{volume.id}'")
-        # TODO return volume.id
+        # TODO return volume.id (disk id)
       end
     end
 
@@ -268,7 +302,9 @@ module Bosh::Tier3Cloud
     # @return [String] snapshot id
     def snapshot_disk(disk_id, metadata)
       with_thread_name("snapshot_disk(#{disk_id})") do
-        # TODO snapshot.id
+        # TODO is no-op?
+        logger.info("Snapshot of disk '#{disk_id}' requested. This is a NO-OP")
+        disk_id
       end
     end
 
@@ -276,7 +312,8 @@ module Bosh::Tier3Cloud
     # @param [String] snapshot_id snapshot id to delete
     def delete_snapshot(snapshot_id)
       with_thread_name("delete_snapshot(#{snapshot_id})") do
-        logger.info("snapshot '#{snapshot_id}' deleted")
+        # TODO is no-op?
+        logger.info("Delete napshot of disk '#{disk_id}' requested. This is a NO-OP")
       end
     end
 
@@ -377,6 +414,41 @@ module Bosh::Tier3Cloud
           RestClient.delete(request_url, json, headers)
         else
           # TODO EXCEPTION
+      end
+    end
+
+    def wait_for(request_id)
+      data = { RequestID: request_id }
+
+      # NB: using 20 minute wait on everything - TODO configurable?
+      # errors = [] array of exception classes that we can retry on TODO
+      Bosh::Common.retryable(sleep: 10, tries: 120) do |tries, error|
+
+        response = rest_request('/blueprint/getblueprintstatus/json', :post, data)
+        resp_data = JSON.parse(response)
+
+        success = resp_data['Success']
+        current_status = resp_data['CurrentStatus']
+        status_code = resp_data['StatusCode']
+        description = resp_data['Description']
+
+        status = false # keep retrying
+
+        unless success
+          @logger.error("Error waiting for request ID: #{request_id}, error: #{description}, status code: #{status_code}")
+          status = true # stop the retries
+        end
+
+        unless current_status == 'Succeeded' or current_status == 'Failed'
+          @logger.warn("Wating on request ID: #{request_id}") if tries > 0
+          status = false # keep retrying
+        else
+          @logger.info("Completed request ID: #{request_id}")
+          status = true # stop retries
+        end
+
+        status # NB: don't use return because that will exit the retries
+
       end
     end
   end
