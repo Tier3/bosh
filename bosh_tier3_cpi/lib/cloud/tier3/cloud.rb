@@ -14,10 +14,24 @@ module Bosh::Tier3Cloud
     # @option options [Hash] tier3 Tier 3 specific options
     # @option options [Hash] agent agent options
     # @option options [Hash] registry agent options
-    def initialize(options)
+    def initialize(options, client = nil)
       @options = options.dup.freeze
       validate_options
+      
+      @client = client || create_client
+
       @logger = Bosh::Clouds::Config.logger
+    end
+
+    def create_client
+      client_options =
+      {
+        :key => api_properties['key'],
+        :password => api_properties['password'],
+        :url => api_properties['url']
+      }
+
+      return Bosh::Tier3Cloud::Tier3Client.new(client_options)
     end
 
     ##
@@ -122,7 +136,7 @@ module Bosh::Tier3Cloud
           request_id = resp_data['RequestID']
 
           if success and request_id > 0
-            wait_for(request_id)
+            @client.wait_for(request_id)
           else
             status_code = resp_data['StatusCode']
             message = resp_data['Message']
@@ -158,7 +172,7 @@ module Bosh::Tier3Cloud
           request_id = resp_data['RequestID']
 
           if success and request_id > 0
-            wait_for(request_id)
+            @client.wait_for(request_id)
           else
             status_code = resp_data['StatusCode']
             message = resp_data['Message']
@@ -180,7 +194,7 @@ module Bosh::Tier3Cloud
         logger.debug("has_vm?(#{instance_id}")
         data = { Name: instance_id }
         # TODO exceptions? check HTTP code?
-        response = rest_request('/server/getserver/json', :post, data)
+        response = @client.post('/server/getserver/json', data)
         resp_data = JSON.parse(response)
         if resp_data.has_key?('Server')
           server = resp_data['Server']
@@ -215,7 +229,7 @@ module Bosh::Tier3Cloud
           request_id = resp_data['RequestID']
 
           if success and request_id > 0
-            wait_for(request_id)
+            @client.wait_for(request_id)
           else
             status_code = resp_data['StatusCode']
             message = resp_data['Message']
@@ -371,85 +385,6 @@ module Bosh::Tier3Cloud
       end
 
       raise ArgumentError, "missing configuration parameters > #{missing_keys.join(', ')}" unless missing_keys.empty?
-    end
-
-    ##
-    # Helps out with making a REST request
-    # @param [String] path of resource (/server/getallservers)
-    # @param [Symbol] method (:get, :post, :put, :delete)
-    # @param [Object] data, will be converted to json
-    # @return RestClient response
-    #
-    def rest_request(path, method, data)
-      url = api_properties['url']
-
-      if (@auth_token.nil?)
-        key = api_properties['key']
-        password = api_properties['password']
-        auth_token_pattern = /(Tier3.API.Cookie=\S*);/
-        auth_url = url + '/auth/logon/json'
-
-        auth_data = { APIKey: key, Password: password }
-        response = RestClient.post(
-          auth_url, auth_data.to_json, :content_type => :json, :accept => :json)
-
-        set_cookie_header = response.headers[:set_cookie]
-        api_cookie_ele = set_cookie_header.select { |cookie| cookie =~ auth_token_pattern }.first
-        @auth_token = api_cookie_ele.match(auth_token_pattern)[1]
-      end
-
-      request_url = url + path
-      headers = { :content_type => :json, :accept => :json, "cookie" => @auth_token }
-      json = data.to_json
-
-      # TODO - use callback? Use RestClient::Resource.new ?
-      case method
-        when :get
-          RestClient.get(request_url, json, headers)
-        when :post
-          RestClient.post(request_url, json, headers)
-        when :put
-          RestClient.put(request_url, json, headers)
-        when :delete
-          RestClient.delete(request_url, json, headers)
-        else
-          # TODO EXCEPTION
-      end
-    end
-
-    def wait_for(request_id)
-      data = { RequestID: request_id }
-
-      # NB: using 20 minute wait on everything - TODO configurable?
-      # errors = [] array of exception classes that we can retry on TODO
-      Bosh::Common.retryable(sleep: 10, tries: 120) do |tries, error|
-
-        response = rest_request('/blueprint/getblueprintstatus/json', :post, data)
-        resp_data = JSON.parse(response)
-
-        success = resp_data['Success']
-        current_status = resp_data['CurrentStatus']
-        status_code = resp_data['StatusCode']
-        description = resp_data['Description']
-
-        status = false # keep retrying
-
-        unless success
-          @logger.error("Error waiting for request ID: #{request_id}, error: #{description}, status code: #{status_code}")
-          status = true # stop the retries
-        end
-
-        unless current_status == 'Succeeded' or current_status == 'Failed'
-          @logger.warn("Wating on request ID: #{request_id}") if tries > 0
-          status = false # keep retrying
-        else
-          @logger.info("Completed request ID: #{request_id}")
-          status = true # stop retries
-        end
-
-        status # NB: don't use return because that will exit the retries
-
-      end
     end
   end
 end
