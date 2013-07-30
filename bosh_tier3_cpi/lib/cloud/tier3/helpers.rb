@@ -13,7 +13,6 @@ module Bosh::Tier3Cloud
       end
       raise Bosh::Clouds::CloudError, message
     end
-
   end
 end
 

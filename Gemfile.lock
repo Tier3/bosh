@@ -1,12 +1,4 @@
 PATH
-  remote: bosh_tier3_cpi
-  specs:
-    bosh_tier3_cpi (1.5.0.pre.3)
-      bosh_common (~> 1.5.0.pre.3)
-      bosh_cpi (~> 1.5.0.pre.3)
-      rest-client
-
-PATH
   remote: agent_client
   specs:
     agent_client (1.5.0.pre.3)
@@ -135,6 +127,15 @@ PATH
       sinatra (~> 1.4.2)
       thin (~> 1.5.0)
       yajl-ruby (~> 1.1.0)
+
+PATH
+  remote: bosh_tier3_cpi
+  specs:
+    bosh_tier3_cpi (1.5.0.pre.3)
+      bosh_common (~> 1.5.0.pre.3)
+      bosh_cpi (~> 1.5.0.pre.3)
+      json
+      rest-client
 
 PATH
   remote: bosh_vsphere_cpi

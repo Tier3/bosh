@@ -6,11 +6,12 @@
 # irb(main):001:0> cpi.create_vm("test", "UBUNTU-10-64-BOSH-TEMPLATE",
 #                  {"instance_type" => "m1.small"}, {}, [], {"foo" =>"bar"})
 
-require "bosh_tier3_cpi"
-require "irb"
-require "irb/completion"
-require "ostruct"
-require "optparse"
+require 'bosh_tier3_cpi'
+require 'irb'
+require 'irb/completion'
+require 'ostruct'
+require 'optparse'
+require 'psych'
 
 config_file = nil
 

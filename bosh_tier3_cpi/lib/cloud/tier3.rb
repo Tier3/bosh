@@ -4,12 +4,17 @@ module Bosh
   module Tier3Cloud; end
 end
 
-require "rest-client"
+require 'rest-client'
+require 'json'
 
-require "cloud"
-require "cloud/tier3/helpers"
-require "cloud/tier3/cloud"
-require "cloud/tier3/version"
+require 'common/exec'
+require 'common/thread_pool'
+require 'common/thread_formatter'
+
+require 'cloud'
+require 'cloud/tier3/helpers'
+require 'cloud/tier3/cloud'
+require 'cloud/tier3/version'
 
 module Bosh
   module Clouds

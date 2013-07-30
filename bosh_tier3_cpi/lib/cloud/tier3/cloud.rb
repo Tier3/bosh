@@ -106,7 +106,12 @@ module Bosh::Tier3Cloud
     # @param [String] Name of NM
     def has_vm?(instance_id)
       with_thread_name("has_vm?(#{instance_id})") do
-        # TODO
+        logger.debug("has_vm?(#{instance_id}")
+        data = { Name: instance_id }
+        # TODO exceptions? check HTTP code?
+        response = rest_request('/server/getserver/json', :post, data)
+        resp_data = JSON.parse(response)
+        return resp_data['Server']['ID'] > 0
       end
     end
 
@@ -233,14 +238,20 @@ module Bosh::Tier3Cloud
       not_implemented(:validate_deployment)
     end
 
+    private
+
+    def api_properties
+      @api_properties ||= options.fetch('api')
+    end
+
     ##
     # Checks if options passed to CPI are valid and can actually
     # be used to create all required data structures etc.
     #
     def validate_options
+
       required_keys = {
-          "tier3" => ["access_key_id", "secret_access_key", "region", "default_key_name"],
-          "registry" => ["endpoint", "user", "password"],
+          'api' => ['url', 'key', 'password', 'template']
       }
 
       missing_keys = []
@@ -254,6 +265,50 @@ module Bosh::Tier3Cloud
       end
 
       raise ArgumentError, "missing configuration parameters > #{missing_keys.join(', ')}" unless missing_keys.empty?
+    end
+
+    ##
+    # Helps out with making a REST request
+    # @param [String] path of resource (/server/getallservers)
+    # @param [Symbol] method (:get, :post, :put, :delete)
+    # @param [Object] data, will be converted to json
+    # @return RestClient response
+    #
+    def rest_request(path, method, data)
+      url = api_properties['url']
+
+      if (@auth_token.nil?)
+        key = api_properties['key']
+        password = api_properties['password']
+        auth_token_pattern = /(Tier3.API.Cookie=\S*);/
+        auth_url = url + '/auth/logon/json'
+
+        auth_data = { APIKey: key, Password: password }
+        response = RestClient.post(
+          auth_url, auth_data.to_json, :content_type => :json, :accept => :json)
+
+        set_cookie_header = response.headers[:set_cookie]
+        api_cookie_ele = set_cookie_header.select { |cookie| cookie =~ auth_token_pattern }.first
+        @auth_token = api_cookie_ele.match(auth_token_pattern)[1]
+      end
+
+      request_url = url + path
+      headers = { :content_type => :json, :accept => :json, "cookie" => @auth_token }
+      json = data.to_json
+
+      # TODO - use callback? Use RestClient::Resource.new ?
+      case method
+        when :get
+          RestClient.get(request_url, json, headers)
+        when :post
+          RestClient.post(request_url, json, headers)
+        when :put
+          RestClient.put(request_url, json, headers)
+        when :delete
+          RestClient.delete(request_url, json, headers)
+        else
+          # TODO EXCEPTION
+      end
     end
   end
 end
