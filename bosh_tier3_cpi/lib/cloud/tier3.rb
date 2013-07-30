@@ -17,6 +17,7 @@ require 'cloud'
 require 'cloud/tier3/helpers'
 require 'cloud/tier3/cloud'
 require 'cloud/tier3/version'
+require 'cloud/tier3/tier3_client'
 
 module Bosh
   module Clouds
