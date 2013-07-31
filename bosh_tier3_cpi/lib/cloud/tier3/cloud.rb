@@ -60,9 +60,9 @@ module Bosh::Tier3Cloud
           logger.debug("create_stemcell(#{image_path}, #{stemcell_properties.inspect}")
           template_name = api_properties['template']
           if has_vm?(template_name)
-            template_name
+            return template_name
           else
-            nil # TODO correct return for not found?
+            raise "Could not find template #{template_name}"
           end
         rescue => e
           logger.error(e)
@@ -81,7 +81,7 @@ module Bosh::Tier3Cloud
     end
 
     ##
-    # Create an VM and wait until it's in running state
+    # Create a VM and wait until it's in running state
     # @param [String] agent_id - agent id associated with new VM
     # @param [String] stemcell_id - Template name to create new instance
     # @param [Hash] resource_pool - resource pool specification (TODO unused?)
@@ -191,20 +191,15 @@ module Bosh::Tier3Cloud
     # @param [String] Name of NM
     def has_vm?(instance_id)
       with_thread_name("has_vm?(#{instance_id})") do
-        logger.debug("has_vm?(#{instance_id}")
-        data = { Name: instance_id }
-        # TODO exceptions? check HTTP code?
-        response = @client.post('/server/getserver/json', data)
-        resp_data = JSON.parse(response)
-        if resp_data.has_key?('Server')
-          server = resp_data['Server']
-          if not server.nil? and server.has_key?('ID')
-            server['ID'] > 0
-          else
-            false
-          end
-        else
-          false
+        begin
+          logger.debug("has_vm?(#{instance_id}")
+          data = { Name: instance_id }
+          response = @client.post('/server/getserver/json', data)
+          resp_data = JSON.parse(response)
+          return resp_data['Success']
+        rescue => e
+          logger.error(e)
+          raise
         end
       end
     end

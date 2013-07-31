@@ -1,5 +1,5 @@
-# Copyright (c) 2009-2013 VMware, Inc.
-# Copyright (c) 2012 Piston Cloud Computing, Inc.
+# Copyright (c) 2013 Tier 3, Inc.
+
 require 'rspec'
 require 'cloud/tier3'
 
