@@ -48,7 +48,7 @@ describe Bosh::Director::DownloadHelper do
         download_remote_file('resource', "bad URI", local_file)
       }.to raise_error(Bosh::Director::ResourceError, 'Downloading remote resource failed. Check task debug log for details.')
     end
-    
+
     it 'should return a ResourceError exception if there is a connection error' do
       Net::HTTP.stub(:start).and_raise(Timeout::Error) 
       
