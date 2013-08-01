@@ -396,7 +396,7 @@ namespace :stemcell do
   def default_options(args)
     infrastructure = args[:infrastructure]
     unless infrastructure
-      STDERR.puts 'Please specify target infrastructure (vsphere, aws, openstack)'
+      STDERR.puts 'Please specify target infrastructure (vsphere, aws, openstack, tier3)'
       exit 1
     end
 
@@ -448,6 +448,8 @@ namespace :stemcell do
 
     case infrastructure
       when 'vsphere'
+        hypervisor = 'esxi'
+      when 'tier3'
         hypervisor = 'esxi'
       when 'aws'
         hypervisor = 'xen'

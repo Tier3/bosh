@@ -11,6 +11,7 @@ COMPONENTS = %w(agent_client
                 bosh_openstack_cpi
                 bosh_registry
                 bosh_vsphere_cpi
+                bosh_tier3_cpi
                 director
                 health_monitor
                 monit_api
