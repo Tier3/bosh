@@ -27,6 +27,11 @@ fi
 
 mkdir -p $chroot/etc/sv
 cp -a $dir/assets/runit/agent $chroot/etc/sv/agent
+if [[ ${stemcell_infrastructure:-vsphere} == "tier3" ]]
+then
+  cp -f $dir/assets/runit/agent/run-tier3 $chroot/etc/sv/agent/run
+fi
+
 
 # runit
 run_in_bosh_chroot $chroot "

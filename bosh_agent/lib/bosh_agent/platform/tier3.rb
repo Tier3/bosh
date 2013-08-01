@@ -4,7 +4,7 @@ module Bosh::Agent
 
   class Platform::Tier3 < Platform::Ubuntu
     def setup_networking
-      # Tier 3 IaaS handles its own networking configuration.
+      # Tier 3 handles its own networking configuration.
     end
   end
 
