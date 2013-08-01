@@ -264,6 +264,8 @@ module Bosh::Tier3Cloud
     def create_disk(size, instance_id = nil)
       with_thread_name("create_disk(#{size}, #{instance_id})") do
 
+        not_implemented(:create_disk)
+
         raise ArgumentError, "disk size needs to be an integer" unless size.kind_of?(Integer)
         cloud_error("Tier3 CPI minimum disk size is 1 GiB") if size < 1024
         cloud_error("Tier3 CPI maximum disk size is 1 TiB") if size > 1024 * 1000
@@ -277,6 +279,8 @@ module Bosh::Tier3Cloud
     # @raise [Bosh::Clouds::CloudError] if disk is not in available state
     def delete_disk(disk_id)
       with_thread_name("delete_disk(#{disk_id})") do
+
+        not_implemented(:delete_disk)
 
         logger.info("Deleting disk `#{disk_id}'")
 
@@ -303,6 +307,7 @@ module Bosh::Tier3Cloud
       with_thread_name("attach_disk(#{instance_id}, #{disk_id})") do
         # TODO
         logger.info("Attached `#{disk_id}' to `#{instance_id}'")
+        not_implemented(:attach_disk)
       end
     end
 
@@ -313,7 +318,7 @@ module Bosh::Tier3Cloud
       with_thread_name("snapshot_disk(#{disk_id})") do
         # TODO is no-op?
         logger.info("Snapshot of disk '#{disk_id}' requested. This is a NO-OP")
-        disk_id
+        not_implemented(:snapshot_disk)
       end
     end
 
@@ -323,6 +328,7 @@ module Bosh::Tier3Cloud
       with_thread_name("delete_snapshot(#{snapshot_id})") do
         # TODO is no-op?
         logger.info("Delete napshot of disk '#{disk_id}' requested. This is a NO-OP")
+        not_implemented(:delete_snapshot)
       end
     end
 
@@ -333,6 +339,7 @@ module Bosh::Tier3Cloud
       with_thread_name("detach_disk(#{instance_id}, #{disk_id})") do
         # TODO
         logger.info("Detached `#{disk_id}' from `#{instance_id}'")
+        not_implemented(:detach_disk)
       end
     end
 
