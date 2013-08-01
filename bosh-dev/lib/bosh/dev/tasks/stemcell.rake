@@ -10,6 +10,14 @@ require 'rugged'
 namespace :stemcell do
   desc 'Build stemcell'
   task :basic, [:infrastructure, :version, :disk_size] do |t, args|
+
+    defaults = {
+      infrastructure: ENV['infrastructure'],
+      version: ENV['version'],
+      disk_size: ENV['disk_size']
+    }
+    args.with_defaults(defaults)
+
     options = default_options(args)
     options[:stemcell_name] ||= 'bosh-stemcell'
     options[:stemcell_version] ||= Bosh::Agent::VERSION
@@ -65,6 +73,15 @@ namespace :stemcell do
 
   desc 'Build Micro Cloud Foundry'
   task :mcf, [:infrastructure, :manifest, :tarball, :micro_src] => 'all:finalize_release_directory' do |t, args|
+
+    defaults = {
+      infrastructure: ENV['infrastructure'],
+      manifest: ENV['manifest'],
+      tarball: ENV['tarball'],
+      micro_src: ENV['micro_src']
+    }
+    args.with_defaults(defaults)
+
     options = default_options(args)
     options[:stemcell_name] ||= 'mcf-stemcell'
     options[:stemcell_version] ||= Bosh::Agent::VERSION

@@ -20,11 +20,12 @@ module Bosh::Agent
           setup_dhcp_from_settings
         when "openstack"
           setup_dhcp_from_settings
+        when "tier3"
+          @logger.info("Tier 3 infrastructure does not require networking setup.")
         else
           raise Bosh::Agent::FatalError, "Setup networking failed, unsupported infrastructure #{Bosh::Agent::Config.infrastructure_name}"
       end
     end
-
 
     def setup_networking_from_settings
       mac_addresses = detect_mac_addresses

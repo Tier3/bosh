@@ -50,7 +50,7 @@ module Bosh::Agent
       logger.info("loaded cached settings: #{@settings.inspect}")
     rescue Errno::ENOENT
       raise LoadSettingsError, "could neither load infrastructure settings " \
-        "nor cached settings from: #@cache_file"
+        "nor cached settings from: #{@cache_file}"
     end
 
     def logger
