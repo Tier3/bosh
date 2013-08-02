@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
 # Copyright (c) 2009-2012 VMware, Inc.
+# 2013 Tier 3, Inc.
 
 set -e
 
