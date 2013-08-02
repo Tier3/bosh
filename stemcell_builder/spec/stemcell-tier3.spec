@@ -30,6 +30,7 @@ stage system_parameters
 # Finalisation
 stage bosh_clean
 stage bosh_harden
+stage bosh_tier3_ssh
 stage bosh_tripwire
 stage bosh_dpkg_list
 
