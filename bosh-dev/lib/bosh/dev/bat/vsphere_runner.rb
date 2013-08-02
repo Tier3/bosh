@@ -1,16 +1,15 @@
-require 'resolv'
 require 'bosh/dev/bat'
 require 'bosh/dev/bat_helper'
 require 'bosh/dev/bat/bosh_cli_session'
 require 'bosh/dev/bat/stemcell_archive'
-require 'bosh/dev/aws/micro_bosh_deployment_manifest'
-require 'bosh/dev/aws/bat_deployment_manifest'
+require 'bosh/dev/vsphere/micro_bosh_deployment_manifest'
+require 'bosh/dev/vsphere/bat_deployment_manifest'
 
 module Bosh::Dev::Bat
-  class AwsRunner
+  class VsphereRunner
     def initialize
       @env = ENV.to_hash
-      @bat_helper = Bosh::Dev::BatHelper.new('aws')
+      @bat_helper = Bosh::Dev::BatHelper.new('vsphere')
       @bosh_cli_session = BoshCliSession.new
       @stemcell_archive = StemcellArchive.new(bat_helper.bosh_stemcell_path)
     end
@@ -31,7 +30,7 @@ module Bosh::Dev::Bat
 
     def create_microbosh_manifest
       Dir.chdir(bat_helper.micro_bosh_deployment_dir) do
-        Bosh::Dev::Aws::MicroBoshDeploymentManifest.new(bosh_cli_session).write
+        Bosh::Dev::VSphere::MicroBoshDeploymentManifest.new.write
       end
     end
 
@@ -49,7 +48,7 @@ module Bosh::Dev::Bat
 
     def create_bat_manifest
       Dir.chdir(bat_helper.artifacts_dir) do
-        bat_deployment_manifest = Bosh::Dev::Aws::BatDeploymentManifest.new(bosh_cli_session, stemcell_archive.version)
+        bat_deployment_manifest = Bosh::Dev::VSphere::BatDeploymentManifest.new(director_uuid, stemcell_archive.version)
         bat_deployment_manifest.write
       end
     end
@@ -74,11 +73,27 @@ module Bosh::Dev::Bat
     end
 
     def director_hostname
-      "micro.#{env.fetch('BOSH_VPC_SUBDOMAIN')}.cf-app.com"
+      director_ip
     end
 
     def director_ip
-      Resolv.getaddress(director_hostname)
+      env.fetch('BOSH_VSPHERE_MICROBOSH_IP')
+    end
+
+    def director_uuid
+      status = bosh_cli_session.run_bosh 'status'
+
+      matches =
+        /
+          UUID(\s)+
+          (?<uuid>(\w+-)+\w+)
+        /x.match(status)
+
+      if matches
+        matches[:uuid]
+      else
+        nil
+      end
     end
   end
 end

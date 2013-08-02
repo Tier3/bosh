@@ -1,39 +1,36 @@
 require 'spec_helper'
-require 'bosh/dev/bat/aws_runner'
+require 'bosh/dev/bat/vsphere_runner'
 
 module Bosh::Dev::Bat
-  describe AwsRunner do
+  describe VsphereRunner do
     include FakeFS::SpecHelpers
 
     let(:bosh_cli_session) { instance_double('Bosh::Dev::Bat::BoshCliSession', run_bosh: 'fake_BoshCliSession_output') }
     let(:stemcell_archive) { instance_double('Bosh::Dev::Bat::StemcellArchive', version: '6') }
-
     let(:bat_helper) do
       instance_double('Bosh::Dev::BatHelper',
-                      artifacts_dir: '/AwsRunner_fake_artifacts_dir',
-                      micro_bosh_deployment_dir: '/AwsRunner_fake_artifacts_dir/fake_micro_bosh_deployment_dir',
+                      artifacts_dir: '/VsphereRunner_fake_artifacts_dir',
+                      micro_bosh_deployment_dir: '/VsphereRunner_fake_artifacts_dir/fake_micro_bosh_deployment_dir',
                       micro_bosh_deployment_name: 'fake_micro_bosh_deployment_name',
                       micro_bosh_stemcell_path: 'fake_micro_bosh_stemcell_path',
                       bosh_stemcell_path: 'fake_bosh_stemcell_path')
     end
 
-    let(:microbosh_deployment_manifest) { instance_double('Bosh::Dev::Aws::MicroBoshDeploymentManifest', write: nil) }
-    let(:bat_deployment_manifest) { instance_double('Bosh::Dev::Aws::BatDeploymentManifest', write: nil) }
+    let(:microbosh_deployment_manifest) { instance_double('Bosh::Dev::VSphere::MicroBoshDeploymentManifest', write: nil) }
+    let(:bat_deployment_manifest) { instance_double('Bosh::Dev::VSphere::BatDeploymentManifest', write: nil) }
 
     before do
-      FileUtils.mkdir('/mnt')
       FileUtils.mkdir_p(bat_helper.micro_bosh_deployment_dir)
 
-      Bosh::Dev::BatHelper.stub(:new).with('aws').and_return(bat_helper)
-      BoshCliSession.stub(new: bosh_cli_session)
-      StemcellArchive.stub(:new).with(bat_helper.bosh_stemcell_path).and_return(stemcell_archive)
+      Bosh::Dev::BatHelper.stub(:new).with('vsphere').and_return(bat_helper)
+      Bosh::Dev::Bat::BoshCliSession.stub(new: bosh_cli_session)
+      Bosh::Dev::Bat::StemcellArchive.stub(:new).with(bat_helper.bosh_stemcell_path).and_return(stemcell_archive)
 
-      Bosh::Dev::Aws::MicroBoshDeploymentManifest.stub(new: microbosh_deployment_manifest)
-      Bosh::Dev::Aws::BatDeploymentManifest.stub(new: bat_deployment_manifest)
+      Bosh::Dev::VSphere::MicroBoshDeploymentManifest.stub(new: microbosh_deployment_manifest)
+      Bosh::Dev::VSphere::BatDeploymentManifest.stub(new: bat_deployment_manifest)
 
       ENV.stub(:to_hash).and_return(
-        'BOSH_VPC_SUBDOMAIN' => 'fake_BOSH_VPC_SUBDOMAIN',
-        'BOSH_JENKINS_DEPLOYMENTS_REPO' => 'fake_BOSH_JENKINS_DEPLOYMENTS_REPO',
+        'BOSH_VSPHERE_MICROBOSH_IP' => 'fake_BOSH_VSPHERE_MICROBOSH_IP'
       )
     end
 
@@ -49,13 +46,10 @@ module Bosh::Dev::Bat
     end
 
     describe '#run_bats' do
-      let(:director_hostname) { 'micro.fake_BOSH_VPC_SUBDOMAIN.cf-app.com' }
-      let(:director_ip) { 'micro.fake_BOSH_VPC_SUBDOMAIN.cf-app.com' }
       let(:bat_rake_task) { double("Rake::Task['bat']", invoke: nil) }
 
       before do
         Rake::Task.stub(:[]).with('bat').and_return(bat_rake_task)
-        Resolv.stub(:getaddress).with(director_hostname).and_return(director_ip)
       end
 
       it 'generates a micro manifest' do
@@ -89,12 +83,27 @@ module Bosh::Dev::Bat
       end
 
       it 'generates a bat manifest' do
+        status_output =
+          <<-STATUS
+            Director
+              Name       microbosh-vsphere-jenkins
+              URL        https://192.168.202.6:25555
+              Version    1.5.0.pre.857 (release:751e27c3 bosh:751e27c3)
+              User       admin
+              UUID       b6b9cbe8-66d8-4440-9bd8-bd8d1990d574
+              CPI        vsphere
+              dns        enabled (domain_name: microbosh)
+              compiled_package_cache disabled
+              snapshots  disabled
+          STATUS
+        bosh_cli_session.stub(:run_bosh).with('status').and_return(status_output)
+
         bat_deployment_manifest.should_receive(:write) do
           FileUtils.touch(File.join(Dir.pwd, 'FAKE_BAT_MANIFEST'))
         end
 
-        Bosh::Dev::Aws::BatDeploymentManifest.should_receive(:new).
-          with(bosh_cli_session, stemcell_archive.version).and_return(bat_deployment_manifest)
+        Bosh::Dev::VSphere::BatDeploymentManifest.should_receive(:new).
+          with('b6b9cbe8-66d8-4440-9bd8-bd8d1990d574', '6').and_return(bat_deployment_manifest)
 
         subject.run_bats
 
@@ -112,8 +121,8 @@ module Bosh::Dev::Bat
         subject.run_bats
 
         expect(ENV['BAT_DEPLOYMENT_SPEC']).to eq(File.join(bat_helper.artifacts_dir, 'bat.yml'))
-        expect(ENV['BAT_DIRECTOR']).to eq(director_hostname)
-        expect(ENV['BAT_DNS_HOST']).to eq(director_ip)
+        expect(ENV['BAT_DIRECTOR']).to eq('fake_BOSH_VSPHERE_MICROBOSH_IP')
+        expect(ENV['BAT_DNS_HOST']).to eq('fake_BOSH_VSPHERE_MICROBOSH_IP')
         expect(ENV['BAT_STEMCELL']).to eq(bat_helper.bosh_stemcell_path)
         expect(ENV['BAT_VCAP_PASSWORD']).to eq('c1oudc0w')
         expect(ENV['BAT_FAST']).to eq('true')
