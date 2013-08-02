@@ -32,3 +32,4 @@ else
 fi
 
 persist_value mcf_enabled
+persist_value stemcell_infrastructure
