@@ -29,7 +29,7 @@ fi
 cp -a $dir/assets/runit/agent $chroot/etc/sv/agent
 
 if [ ${stemcell_infrastructure:-vsphere} == "tier3" ]; then
-  mv $dir/assets/runit/agent/run-tier3 $chroot/etc/sv/agent/run
+  mv $chroot/etc/sv/agent/run-tier3 $chroot/etc/sv/agent/run
   touch $chroot/etc/sv/agent/down # NB: this will ensure that the agent does not start up until we want it to.
 else
   rm $chroot/etc/sv/agent/run-tier3
@@ -43,6 +43,7 @@ fi
 
 # runit
 run_in_bosh_chroot $chroot "
+chown -R root:root /etc/sv
 chmod +x /etc/sv/agent/run /etc/sv/agent/log/run
 ln -s /etc/sv/agent /etc/service/agent
 "
