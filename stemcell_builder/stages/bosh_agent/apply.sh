@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
 # Copyright (c) 2009-2012 VMware, Inc.
+# 2013 Tier 3, Inc.
 
 set -e
 
@@ -29,6 +30,7 @@ cp -a $dir/assets/runit/agent $chroot/etc/sv/agent
 
 if [ ${stemcell_infrastructure:-vsphere} == "tier3" ]; then
   mv $dir/assets/runit/agent/run-tier3 $chroot/etc/sv/agent/run
+  touch $chroot/etc/sv/agent/down # NB: this will ensure that the agent does not start up until we want it to.
 else
   rm $chroot/etc/sv/agent/run-tier3
 fi
