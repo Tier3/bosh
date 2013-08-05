@@ -48,9 +48,11 @@ namespace :spec do
   end
 
   desc 'Run unit and functional tests linearly'
-  task :unit, [:pattern] do |t, args|
-    args.with_defaults(:pattern => '*')
-    builds = Dir[args.pattern].select { |f| File.directory?(f) && File.exists?("#{f}/spec") }
+  # TODO: ELEE task :unit, [:pattern] do |t, args|
+  #  args.with_defaults(:pattern => '*')
+  #  builds = Dir[args.pattern].select { |f| File.directory?(f) && File.exists?("#{f}/spec") }
+  task unit: %w(rubocop) do
+    builds = Dir['*'].select { |f| File.directory?(f) && File.exists?("#{f}/spec") }
     builds -= ['bat']
 
     builds.each do |build|
