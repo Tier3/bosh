@@ -27,6 +27,9 @@ stage system_open_vm_tools
 # Misc
 stage system_parameters
 
+# Template configuration
+stage system_tier3_template
+
 # Finalisation
 stage bosh_clean
 stage bosh_harden
