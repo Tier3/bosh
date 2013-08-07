@@ -9,10 +9,13 @@ module Bosh::Deployer
         if exists?
           server = cloud.get_vm(state.vm_cid)
           if server.has_key?('IPAddresses')
-            ip = server['IPAddresses'].find { |addr| addr['AddressType'] == 1 }
-            if ip != Config.bosh_ip
-              Config.bosh_ip = ip
-              logger.info("discovered bosh ip=#{Config.bosh_ip}")
+            rip = server['IPAddresses'].detect { |addr| addr['AddressType'] == 'RIP' or addr['AddressType'] == 1 }
+            if rip.has_key?('Address')
+              ip = rip['Address']
+              if ip != Config.bosh_ip
+                Config.bosh_ip = ip
+                logger.info("discovered bosh ip=#{Config.bosh_ip}")
+              end
             end
           end
         end
