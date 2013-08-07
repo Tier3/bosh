@@ -85,34 +85,39 @@ module Bosh::Tier3Cloud
     # @param [String] agent_id - agent id associated with new VM
     # @param [String] stemcell_id - Template name to create new instance
     # @param [Hash] resource_pool - resource pool specification (TODO unused?)
-    # @param [Hash] network_spec - network specification (TODO unused?)
+    # @param [Hash] networks - network specification (TODO unused?)
     # @param [optional, Array] disk_locality list of disks that
     #   might be attached to this instance in the future, can be
     #   used as a placement hint (i.e. instance will only be created
     #   if resource pool availability zone is the same as disk
     #   availability zone)
-    # @param [optional, Hash] environment data to be merged into
+    # @param [optional, Hash] env - data to be merged into
     #   agent settings
     #
     # @return [String] Name of the new virtual machine
     #
     def create_vm(agent_id, stemcell_id, resource_pool,
-                  network_spec = nil, disk_locality = nil, environment = nil)
+                  networks, disk_locality = nil, env = nil)
       with_thread_name("create_vm(#{agent_id}, ...)") do
 
         begin
 
-          unless network_spec.is_a?(Hash)
-            raise ArgumentError, "Invalid network spec, Hash expected, #{network_spec.class} provided"
+          unless networks.is_a?(Hash)
+            raise ArgumentError, "Invalid network spec, Hash expected, #{networks.class} provided"
           end
-          unless network_spec['type'] == 'dynamic'
-            raise ArgumentError, 'Invalid network spec, type must be dynamic.'
+
+          unless networks['type'] == 'dynamic'
+            raise ArgumentError, 'Invalid network spec, network type must be dynamic.'
           end
 
           hardware_group_id = api_properties['group-id']
 
           vm_alias = ('A'..'Z').to_a.shuffle[0,6].join
-          logger.debug("create_vm(#{agent_id}, ...) Template: #{stemcell_id} Alias: #{vm_alias} Hardware group ID: #{hardware_group_id}")
+          cpu = resource_pool['cpu'] || 1
+          memory_mb = resource_pool['ram'] || 2048
+          memory_gb = memory_mb / 1024
+
+          logger.debug("create_vm(#{agent_id}, ...) Template: #{stemcell_id} Alias: #{vm_alias} Hardware group ID: #{hardware_group_id} Cpu: #{cpu} MemoryGB: #{memory_gb}")
 
           data = {
             Template: stemcell_id,
@@ -120,8 +125,8 @@ module Bosh::Tier3Cloud
             HardwareGroupID: api_properties['group-id'],
             ServerType: 1, # TODO how to customize?
             ServiceLevel: 2, # TODO how to customize?
-            CPU: 2, # TODO how to customize? cloud_properties['cpu']
-            MemoryGB: 4, # TODO
+            CPU: cpu,
+            MemoryGB: memory_gb
             # ExtraDriveGB: TODO
           }
 
