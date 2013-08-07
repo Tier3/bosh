@@ -1,0 +1,47 @@
+---
+name: bosh-micro01
+
+logging:
+  file: /home/username/logs/micro_bosh.log
+  level: DEBUG
+
+env:
+  bosh:
+    password:
+
+network:
+  type: dynamic
+  dns:
+  - 192.168.64.19
+  - 192.168.64.20
+  cloud_properties:
+    name: vlan_140_172.21.140
+
+resources:
+  cloud_properties:
+    ram: 2048
+    disk: 4096
+    cpu: 2
+
+cloud:
+  plugin: tier3
+  properties:
+    agent:
+      ntp:
+       - ntp01.las01.emcatmos.com
+       - ntp02.las01.emcatmos.com
+    api:
+      url: https://api.tier3qa.com/rest
+      key:
+      password:
+      template:
+      group-id:
+      account-alias:
+      location-alias:
+      network:
+
+apply_spec:
+  properties: {}
+  agent:
+    blobstore: {}
+    nats: {}

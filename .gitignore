@@ -75,3 +75,5 @@ spec_reports
 /tmp/*
 coverage/
 tags
+
+deployments/
