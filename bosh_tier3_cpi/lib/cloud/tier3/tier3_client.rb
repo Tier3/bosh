@@ -5,6 +5,7 @@ module Bosh::Tier3Cloud
 
     def initialize(options)
       @options = options.dup.freeze
+      @logger = Bosh::Clouds::Config.logger
     end
 
     def get(path, data)
@@ -46,10 +47,10 @@ module Bosh::Tier3Cloud
         end
 
         unless current_status == 'Succeeded' or current_status == 'Failed'
-          @logger.warn("Wating on request ID: #{request_id}") if tries > 0
+          @logger.debug("Wating on request ID: #{request_id}") if tries > 0
           status = false # keep retrying
         else
-          @logger.info("Completed request ID: #{request_id}")
+          @logger.debug("Completed request ID: #{request_id}")
           status = true # stop retries
         end
 
