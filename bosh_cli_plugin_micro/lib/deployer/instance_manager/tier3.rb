@@ -5,6 +5,10 @@ module Bosh::Deployer
 
     class Tier3 < InstanceManager
 
+      def remote_tunnel(port)
+        # NB: this is a no-op since we don't use the registry
+      end
+
       def discover_bosh_ip
         if exists?
           server = cloud.get_vm(state.vm_cid)
