@@ -96,10 +96,18 @@ module Bosh::Tier3Cloud
     #
     # @return [String] Name of the new virtual machine
     #
-    def create_vm(agent_id, stemcell_id, resource_pool, network_spec, disk_locality = nil, environment = nil)
+    def create_vm(agent_id, stemcell_id, resource_pool,
+                  network_spec = nil, disk_locality = nil, environment = nil)
       with_thread_name("create_vm(#{agent_id}, ...)") do
 
         begin
+
+          unless network_spec.is_a?(Hash)
+            raise ArgumentError, "Invalid network spec, Hash expected, #{network_spec.class} provided"
+          end
+          unless network_spec['type'] == 'dynamic'
+            raise ArgumentError, 'Invalid network spec, type must be dynamic.'
+          end
 
           hardware_group_id = api_properties['group-id']
 
@@ -358,6 +366,24 @@ module Bosh::Tier3Cloud
     def validate_deployment(old_manifest, new_manifest)
       # Not implemented in VSphere CPI as well
       not_implemented(:validate_deployment)
+    end
+
+    ##
+    # Get VM
+    # @param [String] Name of NM
+    def get_vm(instance_id)
+      with_thread_name("get_vm(#{instance_id})") do
+        begin
+          logger.debug("get_vm(#{instance_id}")
+          data = { Name: instance_id }
+          response = @client.post('/server/getserver/json', data)
+          resp_data = JSON.parse(response)
+          return resp_data['Server']
+        rescue => e
+          logger.error(e)
+          raise
+        end
+      end
     end
 
     private
