@@ -102,13 +102,13 @@ module Bosh::Tier3Cloud
 
         begin
 
+          $stderr.puts("T3 CPI NETWORKS #{networks.inspect}") # TODO DEBUGGING
+
           unless networks.is_a?(Hash)
             raise ArgumentError, "Invalid network spec, Hash expected, #{networks.class} provided"
           end
 
-          unless networks['type'] == 'dynamic'
-            raise ArgumentError, 'Invalid network spec, network type must be dynamic.'
-          end
+          # TODO process networks like openstack NetworkConfigurator
 
           hardware_group_id = api_properties['group-id']
 

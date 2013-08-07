@@ -137,12 +137,18 @@ module Bosh::Deployer
       state.stemcell_name = File.basename(stemcell_tgz, ".tgz")
       save_state
 
-      step "Creating VM from #{state.stemcell_cid}" do
-        state.vm_cid = create_vm(state.stemcell_cid)
-        update_vm_metadata(state.vm_cid, {"Name" => state.name})
-        discover_bosh_ip
+      begin
+        step "Creating VM from #{state.stemcell_cid}" do
+          state.vm_cid = create_vm(state.stemcell_cid)
+          update_vm_metadata(state.vm_cid, {"Name" => state.name})
+          discover_bosh_ip
+        end
+        save_state
+      rescue => e
+        $stderr.puts("EXCEPTION: #{e} #{e.inspect}") # TODO DEBUGGING
+        $stderr.puts("STACK: #{e.backtrace}")
+        throw
       end
-      save_state
 
       step "Waiting for the agent" do        
         begin
