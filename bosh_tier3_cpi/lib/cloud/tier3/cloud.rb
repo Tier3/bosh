@@ -1,5 +1,10 @@
 # Copyright (c) 2013 Tier 3, Inc.
 
+require 'net/scp'
+require 'pry'
+require 'pry-stack_explorer'
+require 'pry-debugger'
+
 module Bosh::Tier3Cloud
 
   class Cloud < Bosh::Cloud
@@ -121,10 +126,8 @@ module Bosh::Tier3Cloud
           raise ArgumentError, "Invalid env spec, Hash expected, #{env.class} provided"
         end
 
-        server_password = env['bosh']['password']
-        if server_password.nil? or server_password.empty?
-          raise ArgumentError, "Invalid env spec, bosh -> password is nil or empty"
-        end
+
+        configure_agent 'QA1ELERTESUM01', agent_id, env
 
         hardware_group_id = api_properties['group-id']
 
@@ -144,7 +147,6 @@ module Bosh::Tier3Cloud
           CPU: cpu,
           MemoryGB: memory_gb,
           Network: vlan_name,
-          Password: server_password
           # ExtraDriveGB: TODO persistent disk
         }
 
@@ -178,6 +180,8 @@ module Bosh::Tier3Cloud
           @logger.error(msg)
           raise msg
         end
+
+        configure_agent created_vm_name, agent_id, env
 
         created_vm_name
       end
@@ -435,6 +439,70 @@ module Bosh::Tier3Cloud
       end
 
       raise ArgumentError, "missing configuration parameters > #{missing_keys.join(', ')}" unless missing_keys.empty?
+    end
+
+    def generate_disk_env
+      {
+        "system" => 0,
+        "ephemeral" => 1,
+        "persistent" => {}
+      }
+    end
+
+    def generate_agent_env(name, agent_id, disk_env)
+      vm_env = {
+        "name" => name
+      }
+
+      env = {}
+      env["vm"] = vm_env
+      env["agent_id"] = agent_id
+      env["disks"] = disk_env
+      env.merge! @options["agent"]
+      env
+    end
+
+    def configure_agent(name, agent_id, environment)
+      disk_env = generate_disk_env
+      env = generate_agent_env(name, agent_id, disk_env)
+      env["env"] = environment
+      @logger.info("Setting VM env: #{env.pretty_inspect}")
+
+      ip_address = get_agent_ip_address name
+      password = get_agent_password name
+
+      set_agent_env(ip_address, password, env)
+    end
+
+    def set_agent_env(ip_address, password, env)
+      Net::SCP.start(ip_address, 'root', {password: password}) do |scp|
+        scp.upload! StringIO.new(env.to_json), '/var/vcap/bosh/settings.json'
+        scp.session.exec! 'rm /etc/sv/agent/down'
+        scp.session.exec! 'sv up agent'
+      end
+      binding.pry
+    end
+
+    def get_agent_ip_address(vm_name)
+      data = {
+        Name: vm_name
+      }
+
+      response = @client.post('/server/getserver/json', data)
+      response_data = JSON.parse(response)
+
+      return response_data['Server']['IPAddress']
+    end
+
+    def get_agent_password(vm_name)
+      data = {
+        Name: vm_name
+      }
+
+      response = @client.post('/server/getservercredentials/json', data)
+      response_data = JSON.parse(response)
+
+      return response_data['Password']
     end
   end
 end
