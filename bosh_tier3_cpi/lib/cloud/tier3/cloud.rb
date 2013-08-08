@@ -126,9 +126,6 @@ module Bosh::Tier3Cloud
           raise ArgumentError, "Invalid env spec, Hash expected, #{env.class} provided"
         end
 
-
-        configure_agent 'QA1ELERTESUM01', agent_id, env
-
         hardware_group_id = api_properties['group-id']
 
         vm_alias = ('A'..'Z').to_a.shuffle[0,6].join
