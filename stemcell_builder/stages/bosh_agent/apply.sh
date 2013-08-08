@@ -28,10 +28,13 @@ fi
 
 cp -a $dir/assets/runit/agent $chroot/etc/sv/agent
 
-if [ ${stemcell_infrastructure:-vsphere} == "tier3" ]; then
+if [[ ${stemcell_infrastructure:-vsphere} == "tier3" ]]
+then
   mv $chroot/etc/sv/agent/run-tier3 $chroot/etc/sv/agent/run
+  touch $chroot/etc/sv/agent/down
 else
   rm $chroot/etc/sv/agent/run-tier3
+  rm $chroot/etc/sv/agent/down
 fi
 
 if [ ${mcf_enabled:-no} == "yes" ]; then
