@@ -1,9 +1,6 @@
 # Copyright (c) 2013 Tier 3, Inc.
 
 require 'net/scp'
-require 'pry'
-require 'pry-stack_explorer'
-require 'pry-debugger'
 
 module Bosh::Tier3Cloud
 
