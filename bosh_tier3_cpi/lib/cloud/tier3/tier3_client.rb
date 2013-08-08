@@ -24,7 +24,7 @@ module Bosh::Tier3Cloud
       execute(path, :delete, data)
     end
 
-    def wait_for(request_id)
+    def wait_for(request_id, &on_completion)
       data = { RequestID: request_id }
 
       # NB: using 20 minute wait on everything - TODO configurable?
@@ -44,6 +44,9 @@ module Bosh::Tier3Cloud
         unless success
           @logger.error("Error waiting for request ID: #{request_id}, error: #{description}, status code: #{status_code}")
           status = true # stop the retries
+          if block_given?
+            on_completion.call(resp_data)
+          end
         end
 
         unless current_status == 'Succeeded' or current_status == 'Failed'
@@ -52,6 +55,9 @@ module Bosh::Tier3Cloud
         else
           @logger.debug("Completed request ID: #{request_id}")
           status = true # stop retries
+          if block_given?
+            on_completion.call(resp_data)
+          end
         end
 
         status # NB: don't use return because that will exit the retries

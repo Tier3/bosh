@@ -57,7 +57,7 @@ module Bosh::Tier3Cloud
     def create_stemcell(image_path, stemcell_properties)
       with_thread_name("create_stemcell(#{image_path}...)") do
         begin
-          logger.debug("create_stemcell(#{image_path}, #{stemcell_properties.inspect}")
+          logger.debug("create_stemcell(#{image_path}, #{stemcell_properties.inspect})")
           template_name = api_properties['template']
           if has_vm?(template_name)
             return template_name
@@ -100,69 +100,86 @@ module Bosh::Tier3Cloud
                   networks, disk_locality = nil, env = nil)
       with_thread_name("create_vm(#{agent_id}, ...)") do
 
-        begin
-
-          $stderr.puts("T3 CPI NETWORKS #{networks.inspect}") # TODO DEBUGGING
-
-          unless networks.is_a?(Hash)
-            raise ArgumentError, "Invalid network spec, Hash expected, #{networks.class} provided"
-          end
-
-          # TODO process networks like openstack NetworkConfigurator
-
-          hardware_group_id = api_properties['group-id']
-
-          vm_alias = ('A'..'Z').to_a.shuffle[0,6].join
-          cpu = resource_pool['cpu'] || 1
-          memory_mb = resource_pool['ram'] || 2048
-          memory_gb = memory_mb / 1024
-
-          logger.debug("create_vm(#{agent_id}, ...) Template: #{stemcell_id} Alias: #{vm_alias} Hardware group ID: #{hardware_group_id} Cpu: #{cpu} MemoryGB: #{memory_gb}")
-
-          data = {
-            Template: stemcell_id,
-            Alias: vm_alias, # NB: 6 chars max
-            HardwareGroupID: api_properties['group-id'],
-            ServerType: 1, # TODO how to customize?
-            ServiceLevel: 2, # TODO how to customize?
-            CPU: cpu,
-            MemoryGB: memory_gb
-            # ExtraDriveGB: TODO
-          }
-
-          if api_properties.has_key?('account-alias')
-            data['AccountAlias'] = api_properties['account-alias']
-          end
-          if api_properties.has_key?('location-alias')
-            data['LocationAlias'] = api_properties['location-alias']
-          end
-          if api_properties.has_key?('network')
-            data['Network'] = api_properties['network']
-          end
-
-          created_vm_name = nil
-
-          response = @client.post('/server/createserver/json', data)
-          resp_data = JSON.parse(response)
-
-          success = resp_data['Success']
-          request_id = resp_data['RequestID']
-
-          if success and request_id > 0
-            @client.wait_for(request_id)
-          else
-            status_code = resp_data['StatusCode']
-            message = resp_data['Message']
-            @logger.error("Error creating VM: #{message} status code: #{status_code}")
-          end
-
-          created_vm_name
-
-        rescue => e # is this rescuing too much?
-          logger.error(%Q[Failed to create VM: #{e.message}\n#{e.backtrace.join("\n")}])
-          raise
+        unless networks.is_a?(Hash)
+          raise ArgumentError, "Invalid network spec, Hash expected, #{networks.class} provided"
+        end
+        unless networks.length == 1
+          raise ArgumentError, "Invalid network spec - only one network should be provided"
         end
 
+        network = networks.values[0]
+        unless network['type'] == 'dynamic'
+          raise ArgumentError, "Invalid network spec - network type must be dynamic"
+        end
+
+        vlan_name = network['cloud_properties']['name']
+        if vlan_name.nil? or vlan_name.empty?
+          raise ArgumentError, "Invalid network spec, network -> cloud_properties -> name is nil or empty"
+        end
+
+        unless env.is_a?(Hash)
+          raise ArgumentError, "Invalid env spec, Hash expected, #{env.class} provided"
+        end
+
+        server_password = env['bosh']['password']
+        if server_password.nil? or server_password.empty?
+          raise ArgumentError, "Invalid env spec, bosh -> password is nil or empty"
+        end
+
+        hardware_group_id = api_properties['group-id']
+
+        vm_alias = ('A'..'Z').to_a.shuffle[0,6].join
+        cpu = resource_pool['cpu'] || 1
+        memory_mb = resource_pool['ram'] || 2048
+        memory_gb = memory_mb / 1024
+
+        logger.debug("create_vm(#{agent_id}, ...) Template: #{stemcell_id} Alias: #{vm_alias} Hardware group ID: #{hardware_group_id} Cpu: #{cpu} MemoryGB: #{memory_gb}")
+
+        data = {
+          Template: stemcell_id,
+          Alias: vm_alias, # NB: 6 chars max
+          HardwareGroupID: api_properties['group-id'],
+          ServerType: 1, # TODO customize?
+          ServiceLevel: 2, # TODO customize?
+          CPU: cpu,
+          MemoryGB: memory_gb,
+          Network: vlan_name,
+          Password: server_password
+          # ExtraDriveGB: TODO persistent disk
+        }
+
+        if api_properties.has_key?('account-alias')
+          data['AccountAlias'] = api_properties['account-alias']
+        end
+        if api_properties.has_key?('location-alias')
+          data['LocationAlias'] = api_properties['location-alias']
+        end
+
+        created_vm_name = nil
+
+        response = @client.post('/server/createserver/json', data)
+        resp_data = JSON.parse(response)
+
+        success = resp_data['Success']
+        request_id = resp_data['RequestID']
+
+        if success and request_id > 0
+          @client.wait_for(request_id) do |resp_data|
+            if resp_data['Success'] == true and resp_data.has_key?('Servers')
+                created_vm_name = resp_data['Servers'][0]
+            else
+              raise "Could not get created VM name"
+            end
+          end
+        else
+          status_code = resp_data['StatusCode']
+          message = resp_data['Message']
+          msg = "Error creating VM: #{message} status code: #{status_code}"
+          @logger.error(msg)
+          raise msg
+        end
+
+        created_vm_name
       end
     end
 
@@ -205,7 +222,7 @@ module Bosh::Tier3Cloud
     def has_vm?(instance_id)
       with_thread_name("has_vm?(#{instance_id})") do
         begin
-          logger.debug("has_vm?(#{instance_id}")
+          logger.debug("has_vm?(#{instance_id})")
           data = { Name: instance_id }
           response = @client.post('/server/getserver/json', data)
           resp_data = JSON.parse(response)
@@ -379,7 +396,7 @@ module Bosh::Tier3Cloud
     def get_vm(instance_id)
       with_thread_name("get_vm(#{instance_id})") do
         begin
-          logger.debug("get_vm(#{instance_id}")
+          logger.debug("get_vm(#{instance_id})")
           data = { Name: instance_id }
           response = @client.post('/server/getserver/json', data)
           resp_data = JSON.parse(response)
