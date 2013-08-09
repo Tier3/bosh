@@ -175,7 +175,7 @@ module Bosh::Tier3Cloud
           raise msg
         end
 
-        configure_agent created_vm_name, agent_id, env
+        configure_agent(created_vm_name, agent_id, env)
 
         created_vm_name
       end
@@ -452,7 +452,7 @@ module Bosh::Tier3Cloud
       env["vm"] = vm_env
       env["agent_id"] = agent_id
       env["disks"] = disk_env
-      env.merge! @options["agent"]
+      env.merge!(@options["agent"])
       env
     end
 
@@ -462,19 +462,18 @@ module Bosh::Tier3Cloud
       env["env"] = environment
       @logger.info("Setting VM env: #{env.pretty_inspect}")
 
-      ip_address = get_agent_ip_address name
-      password = get_agent_password name
+      ip_address = get_agent_ip_address(name)
+      password = get_agent_password(name)
 
       set_agent_env(ip_address, password, env)
     end
 
     def set_agent_env(ip_address, password, env)
-      Net::SCP.start(ip_address, 'root', {password: password}) do |scp|
-        scp.upload! StringIO.new(env.to_json), '/var/vcap/bosh/settings.json'
-        scp.session.exec! 'rm /etc/sv/agent/down'
-        scp.session.exec! 'sv up agent'
+      Net::SCP.start(ip_address, 'root', { password: password }) do |scp|
+        scp.upload!(StringIO.new(env.to_json), '/var/vcap/bosh/settings.json')
+        scp.session.exec!('rm /etc/sv/agent/down')
+        scp.session.exec!('sv up agent')
       end
-      binding.pry
     end
 
     def get_agent_ip_address(vm_name)
