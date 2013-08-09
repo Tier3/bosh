@@ -12,13 +12,17 @@ module Bosh::Deployer
       def discover_bosh_ip
         if exists?
           server = cloud.get_vm(state.vm_cid)
-          if server.has_key?('IPAddresses')
-            rip = server['IPAddresses'].detect { |addr| addr['AddressType'] == 'RIP' or addr['AddressType'] == 1 }
-            if rip.has_key?('Address')
-              ip = rip['Address']
-              if ip != Config.bosh_ip
-                Config.bosh_ip = ip
-                logger.info("discovered bosh ip=#{Config.bosh_ip}")
+          if server.nil?
+            logger.debug("discover_bosh_ip: server #{state.vm_cid} not found!")
+          else
+            if server.has_key?('IPAddresses')
+              rip = server['IPAddresses'].detect { |addr| addr['AddressType'] == 'RIP' or addr['AddressType'] == 1 }
+              if rip.has_key?('Address')
+                ip = rip['Address']
+                if ip != Config.bosh_ip
+                  Config.bosh_ip = ip
+                  logger.info("discovered bosh ip=#{Config.bosh_ip}")
+                end
               end
             end
           end
