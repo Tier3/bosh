@@ -409,7 +409,7 @@ module Bosh::Tier3Cloud
     private
 
     def api_properties
-      @api_properties ||= options.fetch('api')
+      @api_properties ||= options['tier3']['api']
     end
 
     ##
