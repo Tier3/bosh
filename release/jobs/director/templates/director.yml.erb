@@ -256,6 +256,15 @@ cloud:
           vm_metadata_key: <%= vm_metadata_key %>
           description: <%= description %>
 <% end %>
+<%# TODO: T3 specific stuff - see ... to make these values available to ERB (via 'binding') %>
+<% if_p('tier3.api.url', 'tier3.api.key') do |api_url, api_key| %>
+  plugin: tier3 <% plugin = "tier3" %>
+  properties:
+    tier3:
+      api:
+        url: <%= api_url %>,
+        key: <%= api_key %>,
+<% end %>
 <% raise "Could not find cloud plugin" if plugin.nil? %>
     agent:
       ntp: [<%= p('ntp').join(", ") %>]
