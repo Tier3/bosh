@@ -400,7 +400,6 @@ module Bosh::Tier3Cloud
     # be used to create all required data structures etc.
     #
     def validate_options
-
       required_keys = {
           'api' => ['url', 'key', 'password', 'template', 'group-id']
       }
@@ -409,7 +408,7 @@ module Bosh::Tier3Cloud
 
       required_keys.each_pair do |key, values|
         values.each do |value|
-          if (!options.has_key?(key) || !options[key].has_key?(value))
+          if (!options['tier3'].has_key?(key) || !options['tier3'][key].has_key?(value))
             missing_keys << "#{key}:#{value}"
           end
         end
