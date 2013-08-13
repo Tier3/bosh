@@ -292,12 +292,14 @@ module Bosh::Tier3Cloud
     def create_disk(size, instance_id = nil)
       with_thread_name("create_disk(#{size}, #{instance_id})") do
 
-        not_implemented(:create_disk)
+        logger.info("Not implemented: Create disk: size `#{size}' instance: `#{instance_id}'")
 
         raise ArgumentError, "disk size needs to be an integer" unless size.kind_of?(Integer)
         cloud_error("Tier3 CPI minimum disk size is 1 GiB") if size < 1024
         cloud_error("Tier3 CPI maximum disk size is 1 TiB") if size > 1024 * 1000
+
         # TODO return volume.id (disk id)
+        return 'disk-' + instance_id + '-' + size.to_s
       end
     end
 
@@ -307,24 +309,8 @@ module Bosh::Tier3Cloud
     # @raise [Bosh::Clouds::CloudError] if disk is not in available state
     def delete_disk(disk_id)
       with_thread_name("delete_disk(#{disk_id})") do
-
-        not_implemented(:delete_disk)
-
-        logger.info("Deleting disk `#{disk_id}'")
-
-        tries = 10
-        sleep_cb = ResourceWait.sleep_callback("Waiting for disk `#{disk_id}' to be deleted", tries)
-        ensure_cb = Proc.new do |retries|
-          cloud_error("Timed out waiting to delete volume `#{disk_id}'") if retries == tries
-        end
-        # TODO error = Tier3::EC2::Errors::Client::VolumeInUse
-
-        Bosh::Common.retryable(tries: tries, sleep: sleep_cb, on: error, ensure: ensure_cb) do
-          # TODO delete here
-          true # return true to only retry on Exceptions
-        end
-
-        logger.info("Volume `#{disk_id}' has been deleted")
+        logger.info("Not implemented: Deleting disk `#{disk_id}'")
+        logger.info("Not implemented: Volume `#{disk_id}' has been deleted")
       end
     end
 
@@ -334,8 +320,7 @@ module Bosh::Tier3Cloud
     def attach_disk(instance_id, disk_id)
       with_thread_name("attach_disk(#{instance_id}, #{disk_id})") do
         # TODO
-        logger.info("Attached `#{disk_id}' to `#{instance_id}'")
-        not_implemented(:attach_disk)
+        logger.info("Not implemented: Attached `#{disk_id}' to `#{instance_id}'")
       end
     end
 
@@ -345,8 +330,7 @@ module Bosh::Tier3Cloud
     def snapshot_disk(disk_id, metadata)
       with_thread_name("snapshot_disk(#{disk_id})") do
         # TODO is no-op?
-        logger.info("Snapshot of disk '#{disk_id}' requested. This is a NO-OP")
-        not_implemented(:snapshot_disk)
+        logger.info("Not implemented: Snapshot of disk '#{disk_id}' requested. This is a NO-OP")
       end
     end
 
@@ -355,8 +339,7 @@ module Bosh::Tier3Cloud
     def delete_snapshot(snapshot_id)
       with_thread_name("delete_snapshot(#{snapshot_id})") do
         # TODO is no-op?
-        logger.info("Delete napshot of disk '#{disk_id}' requested. This is a NO-OP")
-        not_implemented(:delete_snapshot)
+        logger.info("Not implemented: Delete napshot of disk '#{disk_id}' requested. This is a NO-OP")
       end
     end
 
@@ -366,8 +349,7 @@ module Bosh::Tier3Cloud
     def detach_disk(instance_id, disk_id)
       with_thread_name("detach_disk(#{instance_id}, #{disk_id})") do
         # TODO
-        logger.info("Detached `#{disk_id}' from `#{instance_id}'")
-        not_implemented(:detach_disk)
+        logger.info("Not implemented: Detached `#{disk_id}' from `#{instance_id}'")
       end
     end
 
@@ -379,7 +361,8 @@ module Bosh::Tier3Cloud
     # @return [array[String]] list of opaque disk_ids that can be used with the
     # other disk-related methods on the CPI
     def get_disks(vm_id)
-      not_implemented(:get_disks)
+      logger.info("Not implemented: get_disks(#{vm_id})")
+      []
     end
 
     # @note Not implemented in the Tier3 CPI
