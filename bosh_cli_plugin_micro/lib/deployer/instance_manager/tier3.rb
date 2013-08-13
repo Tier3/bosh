@@ -5,6 +5,12 @@ module Bosh::Deployer
 
     class Tier3 < InstanceManager
 
+      def update_spec(spec)
+        properties = spec.properties
+        # TODO properties["tier3"] = Config.spec_properties["tier3"] || Config.cloud_options["properties"]["tier3"].dup
+        spec.delete("networks")
+      end
+
       def remote_tunnel(port)
         # NB: this is a no-op since we don't use the registry
       end
@@ -33,6 +39,11 @@ module Bosh::Deployer
 
       def service_ip
         discover_bosh_ip
+      end
+
+      def update_persistent_disk
+        logger.info("Skipping persistent disk steps.")
+        state.disk_cid = nil
       end
 
     end
