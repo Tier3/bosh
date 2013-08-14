@@ -1,5 +1,6 @@
 # Copyright (c) 2013 Tier 3, Inc.
 
+require 'net/ssh'
 require 'net/scp'
 
 module Bosh::Tier3Cloud
@@ -451,10 +452,15 @@ module Bosh::Tier3Cloud
     end
 
     def set_agent_env(ip_address, password, env)
-      Net::SCP.start(ip_address, 'root', { password: password }) do |scp|
-        scp.upload!(StringIO.new(env.to_json), '/var/vcap/bosh/settings.json')
-        scp.session.exec!('rm /etc/sv/agent/down')
-        scp.session.exec!('sv up agent')
+      begin
+        Net::SCP.start(ip_address, 'root', { password: password }) do |scp|
+          scp.upload!(StringIO.new(env.to_json), '/var/vcap/bosh/settings.json')
+          scp.session.exec!('rm /etc/sv/agent/down')
+          scp.session.exec!('sv up agent')
+        end
+      rescue Net::SSH::HostKeyMismatch => e
+        e.remember_host!
+        retry
       end
     end
 
