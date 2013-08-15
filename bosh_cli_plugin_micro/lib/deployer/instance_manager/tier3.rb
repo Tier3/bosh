@@ -7,7 +7,9 @@ module Bosh::Deployer
 
       def update_spec(spec)
         properties = spec.properties
-        # TODO properties["tier3"] = Config.spec_properties["tier3"] || Config.cloud_options["properties"]["tier3"].dup
+        properties["tier3"] =
+          Config.spec_properties["tier3"] ||
+          Config.cloud_options["properties"]["tier3"].dup
         spec.delete("networks")
       end
 
