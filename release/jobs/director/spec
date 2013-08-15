@@ -307,3 +307,7 @@ properties:
   vcd.entities.description:
     description: TODO
     default: vcd-cf
+  tier3.api.url:
+    description: Tier 3 API URL
+  tier3.api.key:
+    description: Tier 3 API key
