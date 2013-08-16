@@ -30,14 +30,11 @@ cloud:
   properties:
     tier3:
       api:
-        url: https://api.tier3qa.com/rest
+        url: https://api.tier.com/rest
         key:
         password:
-        template:
-        group-id:
-        account-alias:
-        location-alias:
-        network:
+        account_alias:
+        location_alias:
     agent:
       ntp: []
       blobstore:

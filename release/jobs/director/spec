@@ -311,3 +311,9 @@ properties:
     description: Tier 3 API URL
   tier3.api.key:
     description: Tier 3 API key
+  tier3.api.password:
+    description: Tier 3 API password
+  tier3.api.account_alias:
+    description: Tier 3 account in which to create VMs
+  tier3.api.location_alias:
+    description: Tier 3 location in which to create VMs

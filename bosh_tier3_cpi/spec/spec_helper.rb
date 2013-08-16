@@ -10,8 +10,8 @@ def mock_cloud_options
       'url' => 'https://api.tier3.com',
       'key' => 'apikey',
       'password' => 'password',
-      'template' => 'template',
-      'group-id' => 'group-id'
+      'account_alias' => 'account',
+      'location_alias' => 'location'
     }
   }
 end

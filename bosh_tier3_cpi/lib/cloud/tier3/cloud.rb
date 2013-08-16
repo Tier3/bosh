@@ -124,7 +124,7 @@ module Bosh::Tier3Cloud
           raise ArgumentError, "Invalid env spec, Hash expected, #{env.class} provided"
         end
 
-        hardware_group_id = api_properties['group-id']
+        hardware_group_id = resource_pool['group_id']
 
         vm_alias = ('A'..'Z').to_a.shuffle[0,6].join
         cpu = resource_pool['cpu'] || 1
@@ -136,7 +136,7 @@ module Bosh::Tier3Cloud
         data = {
           Template: stemcell_id,
           Alias: vm_alias, # NB: 6 chars max
-          HardwareGroupID: api_properties['group-id'],
+          HardwareGroupID: hardware_group_id,
           ServerType: 1, # TODO customize?
           ServiceLevel: 2, # TODO customize?
           CPU: cpu,
@@ -145,11 +145,11 @@ module Bosh::Tier3Cloud
           # ExtraDriveGB: TODO persistent disk
         }
 
-        if api_properties.has_key?('account-alias')
-          data['AccountAlias'] = api_properties['account-alias']
+        if api_properties.has_key?('account_alias')
+          data['AccountAlias'] = api_properties['account_alias']
         end
-        if api_properties.has_key?('location-alias')
-          data['LocationAlias'] = api_properties['location-alias']
+        if api_properties.has_key?('location_alias')
+          data['LocationAlias'] = api_properties['location_alias']
         end
 
         created_vm_name = nil
@@ -402,7 +402,7 @@ module Bosh::Tier3Cloud
     #
     def validate_options
       required_keys = {
-          'api' => ['url', 'key', 'password', 'template', 'group-id']
+          'api' => ['url', 'key', 'password', 'account_alias', 'location_alias']
       }
 
       missing_keys = []
