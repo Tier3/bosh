@@ -257,13 +257,18 @@ cloud:
           description: <%= description %>
 <% end %>
 <%# TODO: T3 specific stuff - see ... to make these values available to ERB (via 'binding') %>
-<% if_p('tier3.api.url', 'tier3.api.key') do |api_url, api_key| %>
+<% if_p('tier3.api.url', 'tier3.api.key', 'tier3.api.password',
+        'tier3.api.account_alias', 'tier3.api.location_alias') do |url, key, password,
+                                                                   account_alias, location_alias| %>
   plugin: tier3 <% plugin = "tier3" %>
   properties:
     tier3:
       api:
-        url: <%= api_url %>,
-        key: <%= api_key %>,
+        url: <%= url %>,
+        key: <%= key %>,
+        password: <%= password %>,
+        account_alias: <%= account_alias %>,
+        location_alias: <%= location_alias %>,
 <% end %>
 <% raise "Could not find cloud plugin" if plugin.nil? %>
     agent:

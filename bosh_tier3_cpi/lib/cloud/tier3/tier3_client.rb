@@ -27,9 +27,9 @@ module Bosh::Tier3Cloud
     def wait_for(request_id, &on_completion)
       data = { RequestID: request_id }
 
-      # NB: using 20 minute wait on everything - TODO configurable?
+      # NB: using 60 minute wait on everything - TODO configurable?
       # errors = [] array of exception classes that we can retry on TODO
-      Bosh::Common.retryable(sleep: 10, tries: 120) do |tries, error|
+      Bosh::Common.retryable(sleep: 10, tries: 360) do |tries, error|
 
         response = post('/blueprint/getblueprintstatus/json', data)
         resp_data = JSON.parse(response)
