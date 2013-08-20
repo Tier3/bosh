@@ -6,10 +6,10 @@ require 'rest-client'
 
 describe Bosh::Tier3Cloud::Cloud do
   describe '#delete_stemcell?' do
-    it "is a noop" do
+    it "is not implemented" do
       cloud = make_cloud
       
-      expect(cloud.delete_stemcell(nil)).not_to raise_error
+      expect{cloud.create_stemcell(nil, nil)}.to raise_error Bosh::Clouds::NotImplemented
     end
   end
 end

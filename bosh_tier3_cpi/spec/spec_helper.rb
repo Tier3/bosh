@@ -5,13 +5,17 @@ require 'cloud/tier3'
 
 def mock_cloud_options
   {
-    'api' =>
-    {
-      'url' => 'https://api.tier3.com',
-      'key' => 'apikey',
-      'password' => 'password',
-      'account_alias' => 'account',
-      'location_alias' => 'location'
+    'tier3' => {
+      'api' => {
+        'url' => 'https://api.tier3.com',
+        'key' => 'apikey',
+        'password' => 'password',
+        'account_alias' => 'ELE',
+        'location_alias' => 'QA1'
+      }
+    },
+    'agent' => {
+      'stuff' => 'agent stuff'
     }
   }
 end
