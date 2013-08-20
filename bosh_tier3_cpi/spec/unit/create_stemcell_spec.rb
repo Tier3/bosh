@@ -6,22 +6,10 @@ require 'rest-client'
 
 describe Bosh::Tier3Cloud::Cloud do
   describe '#create_stemcell' do
-    it "returns template name if template exists" do
+    it "is not implemented" do
       cloud = make_cloud
-      cloud.should_receive(:has_vm?)
-      .with('template')
-      .and_return true
       
-      expect(cloud.create_stemcell(nil, nil)).to eq 'template'
+      expect{cloud.create_stemcell(nil, nil)}.to raise_error Bosh::Clouds::NotImplemented
     end
-
-    it "raises exception if the template doesn't exist" do
-      cloud = make_cloud
-      cloud.should_receive(:has_vm?)
-      .with('template')
-      .and_return false
-      
-      expect { cloud.create_stemcell(nil, nil) }.to raise_exception
-   end
   end
 end

@@ -49,37 +49,17 @@ module Bosh::Tier3Cloud
       end
     end
 
-    ##
-    # Returns name of well-known stemcell template
-    # Since the stemcell template will be uploaded and available in advance,
-    # this just checks to see if the 
-    #
-    # @param [String] image_path - Tier 3 ignored
-    # @param [Hash] stemcell_properties - Tier 3 ignored
-    # @return [String] name of the stemcell (VM template name)
+    # Tier3 doesn't support uploading of VM images at this time
     def create_stemcell(image_path, stemcell_properties)
       with_thread_name("create_stemcell(#{image_path}...)") do
-        begin
-          logger.debug("create_stemcell(#{image_path}, #{stemcell_properties.inspect})")
-          template_name = api_properties['template']
-          if has_vm?(template_name)
-            return template_name
-          else
-            raise "Could not find template #{template_name}"
-          end
-        rescue => e
-          logger.error(e)
-          raise
-        end
+        not_implemented(:create_stemcell)
       end
     end
 
-    # Delete a stemcell and the accompanying snapshots
-    # @param [String] stemcell_id
-    # NB: this is a no-op in Tier 3 CPI
+    # Because we're not uploading stemcells we shouldn't be deleting them either
     def delete_stemcell(stemcell_id)
       with_thread_name("delete_stemcell(#{stemcell_id})") do
-        logger.info(%Q[delete_stemcell: no-op])
+        not_implemented(:create_stemcell)
       end
     end
 
@@ -126,6 +106,10 @@ module Bosh::Tier3Cloud
 
         hardware_group_id = resource_pool['group_id']
 
+        unless hardware_group_id.is_a?(Integer)
+          raise ArgumentError, "Invalid hardware group id, integer expected, #{hardware_group_id.class} provided"
+        end
+
         vm_alias = ('A'..'Z').to_a.shuffle[0,6].join
         cpu = resource_pool['cpu'] || 1
         memory_mb = resource_pool['ram'] || 2048
@@ -146,10 +130,10 @@ module Bosh::Tier3Cloud
         }
 
         if api_properties.has_key?('account_alias')
-          data['AccountAlias'] = api_properties['account_alias']
+          data[:AccountAlias] = api_properties['account_alias']
         end
         if api_properties.has_key?('location_alias')
-          data['LocationAlias'] = api_properties['location_alias']
+          data[:LocationAlias] = api_properties['location_alias']
         end
 
         created_vm_name = nil
@@ -178,7 +162,7 @@ module Bosh::Tier3Cloud
 
         configure_agent(created_vm_name, agent_id, env)
 
-        created_vm_name
+        return created_vm_name
       end
     end
 
