@@ -64,7 +64,7 @@ describe Bosh::Tier3Cloud::Cloud do
         # Stub and verify the CreateServer API call
         mock_client.should_receive(:post).with('/server/createserver/json', anything()) do |url, data|
           expect(data[:Template]).to eq 'template'
-          expect(data[:Alias]).to match /[A-Z]{6}/
+          expect(data[:Alias]).to match(/[A-Z]{6}/)
           expect(data[:HardwareGroupID]).to eq 123
           expect(data[:CPU]).to eq 4
           expect(data[:MemoryGB]).to eq 8
@@ -72,10 +72,33 @@ describe Bosh::Tier3Cloud::Cloud do
           expect(data[:AccountAlias]).to eq 'ELE'
           expect(data[:LocationAlias]).to eq 'QA1'
 
-          created_vm_name = "#{data['LocationAlias']}#{data['AccountAlias']}#{data['Alias']}01"
-          "{ \"Success\": true, \"RequestID\": 123, \"Servers\": [\"#{created_vm_name}\"] }"
+          created_vm_name = "#{data[:LocationAlias]}#{data[:AccountAlias]}#{data[:Alias]}01"
+          "{ \"Success\": true, \"RequestID\": 123 }"
+        end
+
+        # Stub and verify .wait_for
+        mock_client.should_receive(:wait_for).with(123) do |&block|
+          block.call({ 'Success' => true, 'Servers' => [created_vm_name] })
+        end
+
+        # Stub and verify the GetServer API call
+        mock_client.should_receive(:post).with('/server/getserver/json', anything()) do |url, data|
+          expect(data[:Name]).to eq created_vm_name
+
+          '{ "Success": true, "Server": { "IPAddress": "192.168.1.2"} }'
+        end
+
+        # Stub and verify the GetServerCredentials API call
+        mock_client.should_receive(:post).with('/server/getservercredentials/json', anything()) do |url, data|
+          expect(data[:Name]).to eq created_vm_name
+
+          '{ "Success": true, "Password": "password" }'
         end
       end
+
+      # Stub SSH stuff
+      Net::SCP.should_receive(:start).with('192.168.1.2', 'root', {password: 'password'})
+
       resource_pool = {
         'group_id' => 123,
         'cpu' => 4,
