@@ -423,14 +423,14 @@ module Bosh::Tier3Cloud
       env
     end
 
-    def configure_agent(name, agent_id, environment)
+    def configure_agent(vm_name, agent_id, environment)
       disk_env = generate_disk_env
-      env = generate_agent_env(name, agent_id, disk_env)
+      env = generate_agent_env(vm_name, agent_id, disk_env)
       env["env"] = environment
       @logger.info("Setting VM env: #{env.pretty_inspect}")
 
-      ip_address = get_agent_ip_address(name)
-      password = get_agent_password(name)
+      ip_address = get_agent_ip_address(vm_name)
+      password = get_agent_password(vm_name)
 
       set_agent_env(ip_address, password, env)
     end
