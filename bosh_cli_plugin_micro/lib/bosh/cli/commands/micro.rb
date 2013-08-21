@@ -105,7 +105,7 @@ module Bosh::Cli::Command
     option "--no-persistent-disk", "don't require persistent disk"
     def perform(stemcell=nil)
       update = !!options[:update]
-      no_persistent_disk = !!options[:no_persistent_disk]
+      no_persistent_disk = options.has_key?(:no_persistent_disk) and not options[:no_persistent_disk].nil?
 
       err "No deployment set" unless deployment
 
