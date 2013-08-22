@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Copyright (c) 2009-2012 VMware, Inc.
+# Copyright (c) 2013 Tier 3, Inc.
 
 set -e
 
@@ -10,4 +10,10 @@ source $base_dir/lib/prelude_bosh.bash
 
 # Enable root ssh access
 sed 's/PermitRootLogin *no/PermitRootLogin yes/i' -i $chroot/etc/ssh/sshd_config
+
+# append command to regen ssh keys to end of $chroot/etc/rc.local
+echo 'if [ ! -f "/etc/ssh/ssh_host_rsa_key" ]
+then
+  dpkg-reconfigure openssh-server
+fi' >> $chroot/etc/rc.local
 
