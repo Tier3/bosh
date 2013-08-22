@@ -52,14 +52,14 @@ module Bosh::Tier3Cloud
     # Tier3 doesn't support uploading of VM images at this time
     def create_stemcell(image_path, stemcell_properties)
       with_thread_name("create_stemcell(#{image_path}...)") do
-        not_implemented(:create_stemcell)
+        logger.debug("create_stemcell(image_path: #{image_path}, stemcell_properties: #{stemcell_properties.inspect})")
       end
     end
 
     # Because we're not uploading stemcells we shouldn't be deleting them either
     def delete_stemcell(stemcell_id)
       with_thread_name("delete_stemcell(#{stemcell_id})") do
-        not_implemented(:create_stemcell)
+        logger.debug("delete_stemcell(stemcell_id: #{stemcell_id})")
       end
     end
 
