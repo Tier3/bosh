@@ -12,8 +12,16 @@ source $base_dir/lib/prelude_bosh.bash
 sed 's/PermitRootLogin *no/PermitRootLogin yes/i' -i $chroot/etc/ssh/sshd_config
 
 # append command to regen ssh keys to end of $chroot/etc/rc.local
-echo 'if [ ! -f "/etc/ssh/ssh_host_rsa_key" ]
+grep -v 'exit 0' $chroot/etc/rc.local > $chroot/etc/rc.local.$$
+
+echo '
+if [ ! -f /etc/ssh/ssh_host_rsa_key ]
 then
   dpkg-reconfigure openssh-server
-fi' >> $chroot/etc/rc.local
+fi
+
+exit 0
+' >> $chroot/etc/rc.local.$$
+
+mv -vf $chroot/etc/rc.local.$$ $chroot/etc/rc.local
 
