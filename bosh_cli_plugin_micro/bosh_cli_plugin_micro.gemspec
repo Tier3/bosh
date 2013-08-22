@@ -24,6 +24,7 @@ Gem::Specification.new do |s|
   s.add_dependency 'agent_client', "~>#{version}"
 
   s.add_dependency 'bosh_cpi', "~>#{version}"
+  s.add_dependency 'bosh_tier3_cpi', "~>#{version}"
   s.add_dependency 'bosh_aws_cpi', "~>#{version}"
   s.add_dependency 'bosh_openstack_cpi', "~>#{version}"
   s.add_dependency 'bosh_vcloud_cpi', '~> 0.4.9'
