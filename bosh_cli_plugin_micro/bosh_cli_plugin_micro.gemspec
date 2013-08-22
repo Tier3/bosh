@@ -20,6 +20,7 @@ Gem::Specification.new do |s|
   s.add_dependency 'bosh_cli', "~>#{version}"
   s.add_dependency 'bosh_cpi', "~>#{version}"
   s.add_dependency 'bosh_vsphere_cpi', "~>#{version}"
+  s.add_dependency 'bosh_tier3_cpi', "~>#{version}"
   s.add_dependency 'bosh_aws_cpi', "~>#{version}"
   s.add_dependency 'bosh_openstack_cpi', "~>#{version}"
   s.add_dependency 'bosh_registry', "~>#{version}"
