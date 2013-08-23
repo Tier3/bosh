@@ -24,4 +24,5 @@ exit 0
 ' >> $chroot/etc/rc.local.$$
 
 mv -vf $chroot/etc/rc.local.$$ $chroot/etc/rc.local
+chmod 755 $chroot/etc/rc.local
 
