@@ -2,6 +2,8 @@ module Bosh::Stemcell
   module Infrastructure
     def self.for(name)
       case name
+        when 'tier3'
+          Tier3.new
         when 'openstack'
           OpenStack.new
         when 'aws'
@@ -17,7 +19,8 @@ module Bosh::Stemcell
       [
         Infrastructure::Vsphere,
         Infrastructure::Aws,
-        Infrastructure::OpenStack
+        Infrastructure::OpenStack,
+        Infrastructure::Tier3
       ].map(&:new)
     end
 
@@ -33,6 +36,12 @@ module Bosh::Stemcell
 
       def light?
         @supports_light_stemcell
+      end
+    end
+
+    class Tier3 < Base
+      def initialize
+        super(name: 'tier3', hypervisor: 'esxi', default_disk_size: 10240)
       end
     end
 
