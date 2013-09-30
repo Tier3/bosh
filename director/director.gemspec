@@ -17,6 +17,7 @@ Gem::Specification.new do |s|
   s.files        = `git ls-files -- lib/* db/*`.split("\n") + %w(CHANGELOG)
   s.require_path = 'lib'
 
+  s.add_dependency 'atomic', '>= 0'
   s.add_dependency 'bcrypt-ruby', '~>3.0.1'
   s.add_dependency 'blobstore_client', "~>#{version}"
   s.add_dependency 'bosh_common', "~>#{version}"
