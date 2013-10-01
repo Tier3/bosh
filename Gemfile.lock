@@ -160,6 +160,7 @@ PATH
   remote: director
   specs:
     director (1.5.0.pre.3)
+      atomic
       bcrypt-ruby (~> 3.0.1)
       blobstore_client (~> 1.5.0.pre.3)
       bosh_aws_cpi (~> 1.5.0.pre.3)
@@ -237,6 +238,7 @@ GEM
   specs:
     addressable (2.3.4)
     ast (1.1.0)
+    atomic (1.1.14)
     aws-sdk (1.8.5)
       json (~> 1.4)
       nokogiri (>= 1.4.4)
