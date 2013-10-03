@@ -14,8 +14,23 @@ module Bosh::Agent
       raise LoadSettingsError, "could not load settings from: #{settings_file}"
     end
 
-    def get_network_settings(network_name, properties)
-      # Nothing to do
+    ##
+    # Gets the network settings for this agent.
+    #
+    # @param [String] network_name Network name
+    # @param [Hash] network_properties Network properties
+    # @return [Hash] Network settings
+    def get_network_settings(network_name, network_properties)
+      type = network_properties["type"] || "manual"
+      unless type && SUPPORTED_NETWORK_TYPES.include?(type)
+        raise Bosh::Agent::StateError, "Unsupported network type '%s', valid types are: %s" %
+            [type, SUPPORTED_NETWORK_TYPES.join(", ")]
+      end
+
+      # Nothing to do for "vip" and "manual" networks
+      return nil if [VIP_NETWORK_TYPE, MANUAL_NETWORK_TYPE].include? type
+
+      Bosh::Agent::Util.get_network_info
     end
   end
 end
