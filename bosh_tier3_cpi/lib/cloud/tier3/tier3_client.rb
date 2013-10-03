@@ -75,8 +75,9 @@ module Bosh::Tier3Cloud
       headers = { :content_type => :json, :accept => :json, "cookie" => @auth_token }
       json = data.to_json
 
-      # This is the Ruby send method, not a RestClient method
-      RestClient.send(method, url, json, headers)
+      @logger.debug("Executing request with URL #{url} and payload #{json}")
+
+      RestClient::Request.execute(:method => method, :url => url, :payload => json, :headers => headers, :timeout => 180)
     end
 
     private
