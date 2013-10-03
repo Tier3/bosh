@@ -20,7 +20,7 @@ module Bosh::Tier3Cloud
     def initialize(options, client = nil)
       @options = options.dup.freeze
       validate_options
-      
+
       @client = client || create_client
 
       @logger = Bosh::Clouds::Config.logger
@@ -278,14 +278,35 @@ module Bosh::Tier3Cloud
     def create_disk(size, instance_id = nil)
       with_thread_name("create_disk(#{size}, #{instance_id})") do
 
-        logger.info("Not implemented: Create disk: size `#{size}' instance: `#{instance_id}'")
+        logger.info("Create disk: size `#{size}' instance: `#{instance_id}'")
 
         raise ArgumentError, "disk size needs to be an integer" unless size.kind_of?(Integer)
         cloud_error("Tier3 CPI minimum disk size is 1 GiB") if size < 1024
         cloud_error("Tier3 CPI maximum disk size is 1 TiB") if size > 1024 * 1000
 
-        # TODO return volume.id (disk id)
-        return 'disk-' + instance_id + '-' + size.to_s
+        data = {
+            'SizeGB' => size / 1024
+        }
+
+        if api_properties.has_key?('account_alias')
+          data['AccountAlias'] = api_properties['account_alias']
+        end
+        if api_properties.has_key?('location_alias')
+          data['Location'] = api_properties['location_alias']
+        end
+
+        response = @client.post('/virtualdisk/create/json', data)
+        resp_data = JSON.parse(response)
+        success = resp_data['Success']
+        disk = resp_data['VirtualDisk']
+
+        if success
+          disk['ID']
+        else
+          msg = "Error creating disk: #{resp_data['Message']} status code: #{resp_data['StatusCode']}"
+          @logger.error(msg)
+          raise msg
+        end
       end
     end
 
@@ -295,8 +316,28 @@ module Bosh::Tier3Cloud
     # @raise [Bosh::Clouds::CloudError] if disk is not in available state
     def delete_disk(disk_id)
       with_thread_name("delete_disk(#{disk_id})") do
-        logger.info("Not implemented: Deleting disk `#{disk_id}'")
-        logger.info("Not implemented: Volume `#{disk_id}' has been deleted")
+        logger.info("Delete disk `#{disk_id}'")
+
+        data = {
+            'VirtualDiskID' => disk_id
+        }
+
+        if api_properties.has_key?('account_alias')
+          data['AccountAlias'] = api_properties['account_alias']
+        end
+        if api_properties.has_key?('location_alias')
+          data['Location'] = api_properties['location_alias']
+        end
+
+        response = @client.post('/virtualdisk/delete/json', data)
+        resp_data = JSON.parse(response)
+        success = resp_data['Success']
+
+        if not success
+          msg = "Error attaching disk: #{resp_data['Message']} status code: #{resp_data['StatusCode']}"
+          @logger.error(msg)
+          raise msg
+        end
       end
     end
 
@@ -305,8 +346,29 @@ module Bosh::Tier3Cloud
     # @param [String] disk_id disk id of the disk to attach
     def attach_disk(instance_id, disk_id)
       with_thread_name("attach_disk(#{instance_id}, #{disk_id})") do
-        # TODO
-        logger.info("Not implemented: Attached `#{disk_id}' to `#{instance_id}'")
+        logger.info("Attach disk `#{disk_id}' to `#{instance_id}'")
+
+        data = {
+            'VirtualDiskID' => disk_id,
+            'ServerName' => instance_id
+        }
+
+        if api_properties.has_key?('account_alias')
+          data['AccountAlias'] = api_properties['account_alias']
+        end
+        if api_properties.has_key?('location_alias')
+          data['Location'] = api_properties['location_alias']
+        end
+
+        response = @client.post('/virtualdisk/attach/json', data)
+        resp_data = JSON.parse(response)
+        success = resp_data['Success']
+
+        if not success
+          msg = "Error attaching disk: #{resp_data['Message']} status code: #{resp_data['StatusCode']}"
+          @logger.error(msg)
+          raise msg
+        end
       end
     end
 
@@ -315,7 +377,7 @@ module Bosh::Tier3Cloud
     # @return [String] snapshot id
     def snapshot_disk(disk_id, metadata)
       with_thread_name("snapshot_disk(#{disk_id})") do
-        # TODO is no-op?
+        # Snapshots on virtual disks are not supported at this time
         logger.info("Not implemented: Snapshot of disk '#{disk_id}' requested. This is a NO-OP")
       end
     end
@@ -324,8 +386,8 @@ module Bosh::Tier3Cloud
     # @param [String] snapshot_id snapshot id to delete
     def delete_snapshot(snapshot_id)
       with_thread_name("delete_snapshot(#{snapshot_id})") do
-        # TODO is no-op?
-        logger.info("Not implemented: Delete napshot of disk '#{disk_id}' requested. This is a NO-OP")
+        # Snapshots on virtual disks are not supported at this time
+        logger.info("Not implemented: Delete snapshot '#{snapshot_id}' requested. This is a NO-OP")
       end
     end
 
@@ -334,8 +396,28 @@ module Bosh::Tier3Cloud
     # @param [String] disk_id id of the disk to detach
     def detach_disk(instance_id, disk_id)
       with_thread_name("detach_disk(#{instance_id}, #{disk_id})") do
-        # TODO
-        logger.info("Not implemented: Detached `#{disk_id}' from `#{instance_id}'")
+        logger.info("Detach disk `#{disk_id}' from `#{instance_id}'")
+
+        data = {
+            'VirtualDiskID' => disk_id
+        }
+
+        if api_properties.has_key?('account_alias')
+          data['AccountAlias'] = api_properties['account_alias']
+        end
+        if api_properties.has_key?('location_alias')
+          data['Location'] = api_properties['location_alias']
+        end
+
+        response = @client.post('/virtualdisk/detach/json', data)
+        resp_data = JSON.parse(response)
+        success = resp_data['Success']
+
+        if not success
+          msg = "Error attaching disk: #{resp_data['Message']} status code: #{resp_data['StatusCode']}"
+          @logger.error(msg)
+          raise msg
+        end
       end
     end
 
@@ -347,8 +429,33 @@ module Bosh::Tier3Cloud
     # @return [array[String]] list of opaque disk_ids that can be used with the
     # other disk-related methods on the CPI
     def get_disks(vm_id)
-      logger.info("Not implemented: get_disks(#{vm_id})")
-      []
+      with_thread_name("get_disks(#{vm_id})") do
+        logger.info("Get disks for VM `#{vm_id}'")
+
+        data = {
+            'ServerName' => vm_id
+        }
+
+        if api_properties.has_key?('account_alias')
+          data['AccountAlias'] = api_properties['account_alias']
+        end
+        if api_properties.has_key?('location_alias')
+          data['Location'] = api_properties['location_alias']
+        end
+
+        response = @client.post('/virtualdisk/list/json', data)
+        resp_data = JSON.parse(response)
+        success = resp_data['Success']
+
+        if not success
+          msg = "Error getting disks: #{resp_data['Message']} status code: #{resp_data['StatusCode']}"
+          @logger.error(msg)
+          raise msg
+        end
+
+        disks = resp_data['VirtualDisks']
+        disks.map { |disk| disk['ID'] }.compact
+      end
     end
 
     # @note Not implemented in the Tier3 CPI
