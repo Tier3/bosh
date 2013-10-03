@@ -53,6 +53,7 @@ module Bosh::Tier3Cloud
     def create_stemcell(image_path, stemcell_properties)
       with_thread_name("create_stemcell(#{image_path}...)") do
         logger.debug("create_stemcell(image_path: #{image_path}, stemcell_properties: #{stemcell_properties.inspect})")
+        stemcell_properties[:name]
       end
     end
 
