@@ -371,6 +371,12 @@ module Bosh::Tier3Cloud
           @logger.error(msg)
           raise msg
         end
+
+        update_agent_settings(instance_id) do |settings|
+          settings["disks"] ||= {}
+          settings["disks"]["persistent"] ||= {}
+          settings["disks"]["persistent"][disk_id] = resp_data['AttachedDisk']['ScsiDeviceID']
+        end
       end
     end
 
@@ -419,6 +425,12 @@ module Bosh::Tier3Cloud
           msg = "Error attaching disk: #{resp_data['Message']} status code: #{resp_data['StatusCode']}"
           @logger.error(msg)
           raise msg
+        end
+
+        update_agent_settings(instance_id) do |settings|
+          settings["disks"] ||= {}
+          settings["disks"]["persistent"] ||= {}
+          settings["disks"]["persistent"].delete(disk_id)
         end
       end
     end
@@ -572,7 +584,7 @@ module Bosh::Tier3Cloud
       disk_env = generate_disk_env
       env = generate_agent_env(vm_name, agent_id, disk_env)
       env["env"] = environment
-      @logger.info("Setting VM env: #{env.pretty_inspect}")
+      @logger.debug("Setting VM env: #{env.pretty_inspect}")
 
       ip_address = get_agent_ip_address(vm_name)
       password = get_agent_password(vm_name)
@@ -583,7 +595,10 @@ module Bosh::Tier3Cloud
     def set_agent_env(ip_address, password, env)
       begin
         Net::SCP.start(ip_address, 'root', { password: password }) do |scp|
+          # write the initial settings.json file for the agent
           scp.upload!(StringIO.new(env.to_json), '/var/vcap/bosh/settings.json')
+
+          # start the agent now that it has settings to read
           scp.session.exec!('rm /etc/sv/agent/down')
           scp.session.exec!('sv up agent')
         end
@@ -614,5 +629,29 @@ module Bosh::Tier3Cloud
 
       return response_data['Password']
     end
+
+    # TODO: This code could probably be merged somehow with configure_agent but
+    # we're keeping it separate for now in the interest of time
+    def update_agent_settings(vm_name)
+      @logger.debug("Updating agent settings...")
+
+      ip_address = get_agent_ip_address(vm_name)
+      password = get_agent_password(vm_name)
+
+      begin
+        Net::SCP.start(ip_address, 'root', { password: password }) do |scp|
+          settings = scp.download!('/var/vcap/bosh/settings.json')
+          settings_data = JSON.parse(settings)
+          yield settings_data
+          scp.upload!(StringIO.new(settings_data.to_json), '/var/vcap/bosh/settings.json')
+
+          @logger.debug("Updated agent settings: #{settings_data.pretty_inspect}")
+        end
+      rescue Net::SSH::HostKeyMismatch => e
+        e.remember_host!
+        retry
+      end
+    end
+
   end
 end
