@@ -57,7 +57,7 @@ properties:
     default: 500
   director.max_threads:
     description: Max number of director concurrent threads
-    default: 32
+    default: 1
   director.enable_snapshots:
     description: Enable/Disable snapshots for persistent disks (true|false)
     default: false
