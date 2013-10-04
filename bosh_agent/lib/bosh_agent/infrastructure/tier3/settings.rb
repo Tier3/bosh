@@ -3,6 +3,14 @@
 module Bosh::Agent
   class Infrastructure::Tier3::Settings
 
+    VIP_NETWORK_TYPE = "vip"
+    DHCP_NETWORK_TYPE = "dynamic"
+    MANUAL_NETWORK_TYPE = "manual"
+
+    SUPPORTED_NETWORK_TYPES = [
+        DHCP_NETWORK_TYPE
+    ]
+
     # loads settings from /var/vcap/bosh/settings.json
     # this file will be created by Tier 3 platform with the VM configuration
     def load_settings
