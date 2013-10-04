@@ -101,10 +101,8 @@ module Bosh::Cli::Command
     usage  "micro deploy"
     desc   "Deploy a micro BOSH instance to the currently selected deployment"
     option "--update", "update existing instance"
-    option "--no-persistent-disk", "don't require persistent disk"
     def perform(stemcell=nil)
       update = !!options[:update]
-      no_persistent_disk = options.has_key?(:no_persistent_disk) and not options[:no_persistent_disk].nil?
 
       err "No deployment set" unless deployment
 
@@ -142,10 +140,8 @@ module Bosh::Cli::Command
         end
 
         # make sure the user knows a persistent disk is required
-        unless no_persistent_disk
-          unless dig_hash(manifest, "resources", "persistent_disk")
-            quit("No persistent disk configured in #{MICRO_BOSH_YAML}".make_red)
-          end
+        unless dig_hash(manifest, "resources", "persistent_disk")
+          quit("No persistent disk configured in #{MICRO_BOSH_YAML}".make_red)
         end
 
         confirmation = "Deploying new"

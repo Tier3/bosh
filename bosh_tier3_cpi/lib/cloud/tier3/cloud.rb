@@ -119,7 +119,9 @@ module Bosh::Tier3Cloud
         logger.debug("create_vm(#{agent_id}, ...) Template: #{stemcell_id} Alias: #{vm_alias} Hardware group ID: #{hardware_group_id} Cpu: #{cpu} MemoryGB: #{memory_gb}")
 
         data = {
-          Template: stemcell_id,
+          # TODO: this is a temporary hack to work around the fact that the Platform is case-sensitive
+          # on template name right now.  Should be fixed in Control.
+          Template: stemcell_id.upcase,
           Alias: vm_alias, # NB: 6 chars max
           HardwareGroupID: hardware_group_id,
           ServerType: 1, # TODO customize?
@@ -455,6 +457,41 @@ module Bosh::Tier3Cloud
 
         disks = resp_data['VirtualDisks']
         disks.map { |disk| disk['ID'] }.compact
+      end
+    end
+
+    ##
+    # Get the size of an attached disk.  Not part of the standard CPI interface but used by the Tier3 instance_manager.
+    # TODO: This should probably be moved into a child Tier3 object like OpenStack and AWS do it
+    #
+    # @param [String] disk_id is the CPI-standard disk_id
+    #
+    # @return [Integer] size in GiB
+    def get_disk_size(disk_id)
+      with_thread_name("get_disk_size(#{disk_id})") do
+        logger.info("Get size for disk `#{disk_id}'")
+
+        data = {}
+
+        if api_properties.has_key?('account_alias')
+          data['AccountAlias'] = api_properties['account_alias']
+        end
+        if api_properties.has_key?('location_alias')
+          data['Location'] = api_properties['location_alias']
+        end
+
+        response = @client.post('/virtualdisk/list/json', data)
+        resp_data = JSON.parse(response)
+        success = resp_data['Success']
+
+        if not success
+          msg = "Error getting disks: #{resp_data['Message']} status code: #{resp_data['StatusCode']}"
+          @logger.error(msg)
+          raise msg
+        end
+
+        disks = resp_data['VirtualDisks']
+        return disks.find{|disk| disk['ID'] == disk_id}.SizeGB
       end
     end
 
