@@ -21,7 +21,7 @@ module Bosh::Agent
         when "openstack"
           setup_dhcp_from_settings
         when "tier3"
-          setup_dns_from_settings
+          setup_dhcp_from_settings
         else
           raise Bosh::Agent::FatalError, "Setup networking failed, unsupported infrastructure #{Bosh::Agent::Config.infrastructure_name}"
       end
@@ -64,12 +64,6 @@ module Bosh::Agent
         settings.fetch('default', []).include?('dns') && settings["dns"]
       end
       default_dns_network ? default_dns_network["dns"] : []
-    end
-
-    def setup_dns_from_settings
-      @logger.info("Updating dns settings in resolv.conf with settings: #{dns.pretty_inspect}")
-      write_resolv_conf
-      @logger.info("Updated dns settings.")
     end
 
     private
