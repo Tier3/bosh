@@ -406,6 +406,8 @@ module Bosh::Tier3Cloud
       with_thread_name("detach_disk(#{instance_id}, #{disk_id})") do
         logger.info("Detach disk `#{disk_id}' from `#{instance_id}'")
 
+        power_off_vm(instance_id)
+
         data = {
             'VirtualDiskID' => disk_id
         }
@@ -426,6 +428,8 @@ module Bosh::Tier3Cloud
           @logger.error(msg)
           raise msg
         end
+
+        power_on_vm(instance_id)
 
         update_agent_settings(instance_id) do |settings|
           settings["disks"] ||= {}
@@ -532,6 +536,54 @@ module Bosh::Tier3Cloud
     end
 
     private
+
+    # We have to power off and on in order to detach persistent disks.
+    # TODO: an argument can be made that the Tier3 API should do that for us automatically
+    def power_on_vm(instance_id)
+      with_thread_name("power_on_vm(#{instance_id})") do
+        logger.debug("power_on_vm(#{instance_id})")
+
+        data = { Name: instance_id }
+
+        response = @client.post('/server/poweronserver/json', data)
+
+        resp_data = JSON.parse(response)
+
+        success = resp_data['Success']
+        request_id = resp_data['RequestID']
+
+        if success and request_id > 0
+          @client.wait_for(request_id)
+        else
+          status_code = resp_data['StatusCode']
+          message = resp_data['Message']
+          @logger.error("Error powering on VM: #{message} status code: #{status_code}")
+        end
+      end
+    end
+
+    def power_off_vm(instance_id)
+      with_thread_name("power_off_vm(#{instance_id})") do
+        logger.debug("power_off_vm(#{instance_id})")
+
+        data = { Name: instance_id }
+
+        response = @client.post('/server/poweroffserver/json', data)
+
+        resp_data = JSON.parse(response)
+
+        success = resp_data['Success']
+        request_id = resp_data['RequestID']
+
+        if success and request_id > 0
+          @client.wait_for(request_id)
+        else
+          status_code = resp_data['StatusCode']
+          message = resp_data['Message']
+          @logger.error("Error powering off VM: #{message} status code: #{status_code}")
+        end
+      end
+    end
 
     def api_properties
       @api_properties ||= options['tier3']['api']
