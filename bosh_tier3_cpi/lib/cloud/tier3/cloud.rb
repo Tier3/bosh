@@ -68,8 +68,8 @@ module Bosh::Tier3Cloud
     # Create a VM and wait until it's in running state
     # @param [String] agent_id - agent id associated with new VM
     # @param [String] stemcell_id - Template name to create new instance
-    # @param [Hash] resource_pool - resource pool specification (TODO unused?)
-    # @param [Hash] networks - network specification (TODO unused?)
+    # @param [Hash] resource_pool - resource pool specification
+    # @param [Hash] networks - network specification
     # @param [optional, Array] disk_locality list of disks that
     #   might be attached to this instance in the future, can be
     #   used as a placement hint (i.e. instance will only be created
@@ -163,7 +163,7 @@ module Bosh::Tier3Cloud
           raise msg
         end
 
-        configure_agent(created_vm_name, agent_id, env)
+        configure_agent(created_vm_name, agent_id, env, networks)
 
         return created_vm_name
       end
@@ -619,7 +619,7 @@ module Bosh::Tier3Cloud
       }
     end
 
-    def generate_agent_env(name, agent_id, disk_env)
+    def generate_agent_env(name, agent_id, disk_env, network_env)
       vm_env = {
         "name" => name
       }
@@ -628,13 +628,14 @@ module Bosh::Tier3Cloud
       env["vm"] = vm_env
       env["agent_id"] = agent_id
       env["disks"] = disk_env
+      env["networks"] = network_env
       env.merge!(@options["agent"])
       env
     end
 
-    def configure_agent(vm_name, agent_id, environment)
+    def configure_agent(vm_name, agent_id, environment, network_env)
       disk_env = generate_disk_env
-      env = generate_agent_env(vm_name, agent_id, disk_env)
+      env = generate_agent_env(vm_name, agent_id, disk_env, network_env)
       env["env"] = environment
       @logger.debug("Setting VM env: #{env.pretty_inspect}")
 
