@@ -21,7 +21,7 @@ module Bosh::Agent
         when "openstack"
           setup_dhcp_from_settings
         when "tier3"
-          setup_dhcp_from_settings
+          setup_dns_from_settings
         else
           raise Bosh::Agent::FatalError, "Setup networking failed, unsupported infrastructure #{Bosh::Agent::Config.infrastructure_name}"
       end
@@ -56,6 +56,12 @@ module Bosh::Agent
     def setup_dhcp_from_settings
       unless dns.empty?
         write_dhcp_conf
+      end
+    end
+
+    def setup_dns_from_settings
+      unless dns.empty?
+        write_resolv_conf
       end
     end
 
