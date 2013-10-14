@@ -24,8 +24,11 @@ module Bosh::Tier3Cloud
       execute(path, :delete, data)
     end
 
-    def wait_for(request_id, &on_completion)
-      data = { RequestID: request_id }
+    def wait_for(request_id, location_alias, &on_completion)
+      data = {
+        RequestID: request_id,
+        LocationAlias: location_alias
+      }
 
       # NB: using 24-hour wait on everything, because big deploys could run for a very long time - TODO configurable?
       # errors = [] array of exception classes that we can retry on TODO
@@ -50,7 +53,7 @@ module Bosh::Tier3Cloud
         end
 
         unless current_status == 'Succeeded' or current_status == 'Failed'
-          @logger.debug("Wating on request ID: #{request_id}") if tries > 0
+          @logger.debug("Waiting on request ID: #{request_id}") if tries > 0
           status = false # keep retrying
         else
           @logger.debug("Completed request ID: #{request_id}")

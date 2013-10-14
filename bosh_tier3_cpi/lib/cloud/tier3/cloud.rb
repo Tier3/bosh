@@ -130,14 +130,9 @@ module Bosh::Tier3Cloud
           MemoryGB: memory_gb,
           Network: vlan_name,
           # ExtraDriveGB: TODO persistent disk
+          AccountAlias: api_properties['account_alias'],
+          LocationAlias: api_properties['location_alias']
         }
-
-        if api_properties.has_key?('account_alias')
-          data[:AccountAlias] = api_properties['account_alias']
-        end
-        if api_properties.has_key?('location_alias')
-          data[:LocationAlias] = api_properties['location_alias']
-        end
 
         created_vm_name = nil
 
@@ -148,7 +143,7 @@ module Bosh::Tier3Cloud
         request_id = resp_data['RequestID']
 
         if success and request_id > 0
-          @client.wait_for(request_id) do |resp_data|
+          @client.wait_for(request_id, api_properties['location_alias']) do |resp_data|
             if resp_data['Success'] == true and resp_data.has_key?('Servers')
                 created_vm_name = resp_data['Servers'][0]
             else
@@ -188,7 +183,7 @@ module Bosh::Tier3Cloud
           request_id = resp_data['RequestID']
 
           if success and request_id > 0
-            @client.wait_for(request_id)
+            @client.wait_for(request_id, api_properties['location_alias'])
           else
             status_code = resp_data['StatusCode']
             message = resp_data['Message']
@@ -240,7 +235,7 @@ module Bosh::Tier3Cloud
           request_id = resp_data['RequestID']
 
           if success and request_id > 0
-            @client.wait_for(request_id)
+            @client.wait_for(request_id, api_properties['location_alias'])
           else
             status_code = resp_data['StatusCode']
             message = resp_data['Message']
@@ -287,15 +282,10 @@ module Bosh::Tier3Cloud
         cloud_error("Tier3 CPI maximum disk size is 1 TiB") if size > 1024 * 1000
 
         data = {
-            'SizeGB' => size / 1024
+          SizeGB: size / 1024,
+          AccountAlias: api_properties['account_alias'],
+          Location: api_properties['location_alias']
         }
-
-        if api_properties.has_key?('account_alias')
-          data['AccountAlias'] = api_properties['account_alias']
-        end
-        if api_properties.has_key?('location_alias')
-          data['Location'] = api_properties['location_alias']
-        end
 
         response = @client.post('/virtualdisk/create/json', data)
         resp_data = JSON.parse(response)
@@ -321,15 +311,10 @@ module Bosh::Tier3Cloud
         logger.info("Delete disk `#{disk_id}'")
 
         data = {
-            'VirtualDiskID' => disk_id
+          VirtualDiskID: disk_id,
+          AccountAlias: api_properties['account_alias'],
+          Location: api_properties['location_alias']
         }
-
-        if api_properties.has_key?('account_alias')
-          data['AccountAlias'] = api_properties['account_alias']
-        end
-        if api_properties.has_key?('location_alias')
-          data['Location'] = api_properties['location_alias']
-        end
 
         response = @client.post('/virtualdisk/delete/json', data)
         resp_data = JSON.parse(response)
@@ -351,16 +336,11 @@ module Bosh::Tier3Cloud
         logger.info("Attach disk `#{disk_id}' to `#{instance_id}'")
 
         data = {
-            'VirtualDiskID' => disk_id,
-            'ServerName' => instance_id
+          VirtualDiskID: disk_id,
+          ServerName: instance_id,
+          AccountAlias: api_properties['account_alias'],
+          Location: api_properties['location_alias']
         }
-
-        if api_properties.has_key?('account_alias')
-          data['AccountAlias'] = api_properties['account_alias']
-        end
-        if api_properties.has_key?('location_alias')
-          data['Location'] = api_properties['location_alias']
-        end
 
         response = @client.post('/virtualdisk/attach/json', data)
         resp_data = JSON.parse(response)
@@ -409,15 +389,10 @@ module Bosh::Tier3Cloud
         power_off_vm(instance_id)
 
         data = {
-            'VirtualDiskID' => disk_id
+          VirtualDiskID: disk_id,
+          AccountAlias: api_properties['account_alias'],
+          Location: api_properties['location_alias']
         }
-
-        if api_properties.has_key?('account_alias')
-          data['AccountAlias'] = api_properties['account_alias']
-        end
-        if api_properties.has_key?('location_alias')
-          data['Location'] = api_properties['location_alias']
-        end
 
         response = @client.post('/virtualdisk/detach/json', data)
         resp_data = JSON.parse(response)
@@ -451,15 +426,10 @@ module Bosh::Tier3Cloud
         logger.info("Get disks for VM `#{vm_id}'")
 
         data = {
-            'ServerName' => vm_id
+          ServerName: vm_id,
+          AccountAlias: api_properties['account_alias'],
+          Location: api_properties['location_alias']
         }
-
-        if api_properties.has_key?('account_alias')
-          data['AccountAlias'] = api_properties['account_alias']
-        end
-        if api_properties.has_key?('location_alias')
-          data['Location'] = api_properties['location_alias']
-        end
 
         response = @client.post('/virtualdisk/list/json', data)
         resp_data = JSON.parse(response)
@@ -487,14 +457,10 @@ module Bosh::Tier3Cloud
       with_thread_name("get_disk_size(#{disk_id})") do
         logger.info("Get size for disk `#{disk_id}'")
 
-        data = {}
-
-        if api_properties.has_key?('account_alias')
-          data['AccountAlias'] = api_properties['account_alias']
-        end
-        if api_properties.has_key?('location_alias')
-          data['Location'] = api_properties['location_alias']
-        end
+        data = {
+          AccountAlias: api_properties['account_alias'],
+          Location: api_properties['location_alias']
+        }
 
         response = @client.post('/virtualdisk/list/json', data)
         resp_data = JSON.parse(response)
@@ -553,7 +519,7 @@ module Bosh::Tier3Cloud
         request_id = resp_data['RequestID']
 
         if success and request_id > 0
-          @client.wait_for(request_id)
+          @client.wait_for(request_id, api_properties['location_alias'])
         else
           status_code = resp_data['StatusCode']
           message = resp_data['Message']
@@ -576,7 +542,7 @@ module Bosh::Tier3Cloud
         request_id = resp_data['RequestID']
 
         if success and request_id > 0
-          @client.wait_for(request_id)
+          @client.wait_for(request_id, api_properties['location_alias'])
         else
           status_code = resp_data['StatusCode']
           message = resp_data['Message']
