@@ -632,10 +632,17 @@ module Bosh::Tier3Cloud
         Name: vm_name
       }
 
-      response = @client.post('/server/getserver/json', data)
-      response_data = JSON.parse(response)
+      # Sometimes when the VM has just been powered on, the GetServer call will return
+      # an empty IP address.  We keep asking until we get a real one.
+      ipaddress = ''
+      while ipaddress.empty? do
+        response = @client.post('/server/getserver/json', data)
+        response_data = JSON.parse(response)
+        ipaddress = response_data['Server']['IPAddress']
+        sleep(5) if ipaddress.empty?
+      end
 
-      return response_data['Server']['IPAddress']
+      return ipaddress
     end
 
     def get_agent_password(vm_name)
@@ -656,6 +663,8 @@ module Bosh::Tier3Cloud
 
       ip_address = get_agent_ip_address(vm_name)
       password = get_agent_password(vm_name)
+
+      @logger.debug("Updating #{vm_name} at #{ip_address}")
 
       begin
         Net::SCP.start(ip_address, 'root', { password: password }) do |scp|
