@@ -144,11 +144,7 @@ module Bosh::Tier3Cloud
 
         if success and request_id > 0
           @client.wait_for(request_id, api_properties['location_alias']) do |resp_data|
-            if resp_data['Success'] == true and resp_data.has_key?('Servers')
-                created_vm_name = resp_data['Servers'][0]
-            else
-              raise "Could not get created VM name"
-            end
+            created_vm_name = resp_data['Servers'][0]
           end
         else
           status_code = resp_data['StatusCode']

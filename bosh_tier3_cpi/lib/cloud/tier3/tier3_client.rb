@@ -44,23 +44,22 @@ module Bosh::Tier3Cloud
 
         status = false # keep retrying
 
-        unless success
-          @logger.error("Error waiting for request ID: #{request_id}, error: #{description}, status code: #{status_code}")
-          status = true # stop the retries
-          if block_given?
-            on_completion.call(resp_data)
+        if success
+          case current_status
+          when 'Succeeded'
+            @logger.debug("Completed request ID: #{request_id}")
+            status = true # stop retries
+            if block_given?
+              on_completion.call(resp_data)
+            end
+          when 'Failed'
+            raise "Blueprint #{request_id} failed with error: #{description}"
+          else
+            @logger.debug("Waiting on request ID: #{request_id}") if tries > 0
+            status = false # keep retrying
           end
-        end
-
-        unless current_status == 'Succeeded' or current_status == 'Failed'
-          @logger.debug("Waiting on request ID: #{request_id}") if tries > 0
-          status = false # keep retrying
         else
-          @logger.debug("Completed request ID: #{request_id}")
-          status = true # stop retries
-          if block_given?
-            on_completion.call(resp_data)
-          end
+          raise "Error waiting for request ID: #{request_id}, error: #{description}, status code: #{status_code}"
         end
 
         status # NB: don't use return because that will exit the retries
