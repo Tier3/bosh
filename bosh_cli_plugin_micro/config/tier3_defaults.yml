@@ -11,7 +11,9 @@ env:
 
 network:
   type: dynamic
-  dns: []
+  dns:
+  - 172.17.1.26
+  - 172.17.1.27
   cloud_properties:
     name:
 
