@@ -111,7 +111,8 @@ module Bosh::Tier3Cloud
           raise ArgumentError, "Invalid hardware group id, integer expected, #{hardware_group_id.class} provided"
         end
 
-        vm_alias = ('A'..'Z').to_a.shuffle[0,6].join
+        vm_alias = resource_pool['shared_name'] || ('A'..'Z').to_a.shuffle[0,6].join
+        vm_alias = vm_alias.slice(0..6).upcase
         cpu = resource_pool['cpu'] || 1
         memory_mb = resource_pool['ram'] || 2048
         memory_gb = memory_mb / 1024
@@ -469,7 +470,7 @@ module Bosh::Tier3Cloud
         end
 
         disks = resp_data['VirtualDisks']
-        return disks.find{|disk| disk['ID'] == disk_id}.SizeGB
+        return disks.find{|disk| disk['ID'] == disk_id}['SizeGB']
       end
     end
 
