@@ -30,40 +30,37 @@ module Bosh::Tier3Cloud
         LocationAlias: location_alias
       }
 
-      # NB: using 24-hour wait on everything, because big deploys could run for a very long time - TODO configurable?
-      # errors = [] array of exception classes that we can retry on TODO
-      Bosh::Common.retryable(sleep: 10, tries: 60*60*24/10) do |tries, error|
-
+      # Number of retries is some very large number because blueprints can take an
+      # arbitrary amount of time to complete
+      Bosh::Common.retryable(sleep: 10, tries: 1000000, on: [RestClient::Exception]) do |tries, error|
         response = post('/blueprint/getblueprintstatus/json', data)
         resp_data = JSON.parse(response)
 
-        success = resp_data['Success']
-        current_status = resp_data['CurrentStatus']
+        api_success = resp_data['Success']
+        current_blueprint_status = resp_data['CurrentStatus']
         status_code = resp_data['StatusCode']
         description = resp_data['Description']
 
-        status = false # keep retrying
+        should_exit = false
 
-        if success
-          case current_status
+        if api_success
+          case current_blueprint_status
           when 'Succeeded'
             @logger.debug("Completed request ID: #{request_id}")
-            status = true # stop retries
+            should_exit = true
             if block_given?
               on_completion.call(resp_data)
             end
           when 'Failed'
             raise "Blueprint #{request_id} failed with error: #{description}"
           else
-            @logger.debug("Waiting on request ID: #{request_id}") if tries > 0
-            status = false # keep retrying
+            @logger.debug("Waiting on request ID: #{request_id}")
           end
         else
           raise "Error waiting for request ID: #{request_id}, error: #{description}, status code: #{status_code}"
         end
 
-        status # NB: don't use return because that will exit the retries
-
+        should_exit # NB: don't use return because that will exit the retries
       end
     end
 
@@ -79,17 +76,26 @@ module Bosh::Tier3Cloud
 
       @logger.debug("Executing request with URL #{url} and payload #{json}")
 
-      RestClient::Request.execute(:method => method, :url => url, :payload => json, :headers => headers, :timeout => 180)
+      response = nil
+      Bosh::Common.retryable(sleep: 30, tries: 3, on: [RestClient::Exception]) do |tries, error|
+        @logger.debug("Call failed with #{error}, retrying") if tries > 1
+        response = RestClient::Request.execute(:method => method, :url => url, :payload => json, :headers => headers, :timeout => 180)
+      end
+
+      return response
     end
 
     private
     def get_auth_token
       auth_token_pattern = /(Tier3.API.Cookie=\S*);/
       auth_url = @options[:url] + '/auth/logon/json'
-
       auth_data = { APIKey: @options[:key], Password: @options[:password] }
-      response = RestClient.post(
-        auth_url, auth_data.to_json, :content_type => :json, :accept => :json)
+
+      response = nil
+      Bosh::Common.retryable(sleep: 30, tries: 3, on: [RestClient::Exception]) do |tries, error|
+        @logger.debug("Call failed with #{error}, retrying") if tries > 1
+        response = RestClient.post(auth_url, auth_data.to_json, :content_type => :json, :accept => :json)
+      end
 
       set_cookie_header = response.headers[:set_cookie]
       api_cookie = set_cookie_header.select { |cookie| cookie =~ auth_token_pattern }.first
