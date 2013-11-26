@@ -13,6 +13,11 @@ module Bosh::Deployer
         spec.delete("networks")
       end
 
+      def delete_disk(disk_cid, vm_cid)
+        super
+        wait_until_agent_ready
+      end
+
       def remote_tunnel(port)
         # NB: this is a no-op since we don't use the registry
       end
