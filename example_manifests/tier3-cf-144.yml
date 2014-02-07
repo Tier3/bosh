@@ -1,0 +1,344 @@
+---
+<%
+# Find your director UUID by running 'bosh status'
+director_uuid = "7e868987-bf2a-4a85-85c9-4636a17f17f0"
+protocol = "http"
+# This is the version number of the Cloud Foundry release you uploaded
+cf_release = "144"
+# The password that will be configured in Cloud Foundry
+common_password = "c1oudc0w"
+# The root domain for your Cloud Foundry apps
+root_domain = "bosh.mycompany.com"
+# The name of this deployment
+deployment_name = "tier3-cf"
+# The ID of the hardware group in which to place deployed servers,
+# get this from the URL of the group in Control
+hardware_group_id = 5371
+# The IP address of the micro-BOSH server you previously set up
+micro_bosh_server_ip = "172.21.140.20"
+# The VLAN on which to place deployed servers, view networks in Control
+# to get the names of your networks
+vlan = "vlan_140_172.21.140"
+%>
+
+name: <%= deployment_name %>
+director_uuid: <%= director_uuid %>
+
+releases:
+ - name: cf
+   version: <%= cf_release %>
+
+compilation:
+  workers: 3
+  network: default
+  reuse_compilation_vms: true
+  cloud_properties:
+    ram: 4096
+    cpu: 2
+    group_id: <%= hardware_group_id %>
+    shared_name: WORK
+
+update:
+  canaries: 1
+  canary_watch_time: 30000-300000
+  update_watch_time: 30000-300000
+  max_in_flight: 4
+
+networks:
+- name: default
+  type: dynamic
+  dns:
+  - <%= micro_bosh_server_ip %>
+  - 172.17.1.26
+  - 172.17.1.27
+  cloud_properties:
+    name: <%= vlan %>
+
+resource_pools:
+  - name: common
+    network: default
+    size: 8
+    stemcell:
+      name: bosh-stemcell
+      version: latest
+    cloud_properties:
+      ram: 2048
+      cpu: 1
+      group_id: <%= hardware_group_id %>
+      shared_name: SMALL
+
+  - name: large
+    network: default
+    size: 1
+    stemcell:
+      name: bosh-stemcell
+      version: latest
+    cloud_properties:
+      ram: 4096
+      cpu: 2
+      group_id: <%= hardware_group_id %>
+      shared_name: LARGE
+
+jobs:
+  - name: nats
+    template:
+      - nats
+    instances: 1
+    resource_pool: common
+    networks:
+      - name: default
+        default: [dns, gateway]
+
+  - name: syslog_aggregator
+    template:
+      - syslog_aggregator
+    instances: 1
+    resource_pool: common
+    persistent_disk: 65536
+    networks:
+      - name: default
+        default: [dns, gateway]
+
+  - name: postgres
+    template:
+      - postgres
+    instances: 1
+    resource_pool: common
+    persistent_disk: 65536
+    networks:
+      - name: default
+        default: [dns, gateway]
+    properties:
+      db: databases
+
+  - name: nfs_server
+    template:
+      - debian_nfs_server
+    instances: 1
+    resource_pool: common
+    persistent_disk: 65536
+    networks:
+      - name: default
+        default: [dns, gateway]
+
+  - name: uaa
+    template:
+      - uaa
+    instances: 1
+    resource_pool: common
+    networks:
+      - name: default
+        default: [dns, gateway]
+
+  - name: cloud_controller
+    template:
+      - cloud_controller_ng
+    instances: 1
+    resource_pool: common
+    networks:
+      - name: default
+        default: [dns, gateway]
+    properties:
+      ccdb: ccdb
+
+  - name: router
+    template:
+      - gorouter
+    instances: 1
+    resource_pool: common
+    networks:
+      - name: default
+        default: [dns, gateway]
+
+  - name: health_manager
+    template:
+      - health_manager_next
+    instances: 1
+    resource_pool: common
+    networks:
+      - name: default
+        default: [dns, gateway]
+
+  - name: dea
+    template: dea_next
+    instances: 1
+    resource_pool: large
+    networks:
+      - name: default
+        default: [dns, gateway]
+
+properties:
+  domain: <%= root_domain %>
+  system_domain: <%= root_domain %>
+  system_domain_organization: "demo"
+  app_domains:
+    - <%= root_domain %>
+  support_address: http://support.<%= root_domain %>
+  description: "Cloud Foundry v2 sponsored by Pivotal"
+
+  networks:
+    apps: default
+    management: default
+
+  nats:
+    address: 0.nats.default.<%= deployment_name %>.microbosh
+    port: 4222
+    user: nats
+    password: <%= common_password %>
+    authorization_timeout: 10
+
+  router:
+    status:
+      port: 8080
+      user: gorouter
+      password: <%= common_password %>
+
+  dea: &dea
+    memory_mb: 4096
+    disk_mb: 16384
+    directory_server_protocol: <%= protocol %>
+    mtu: 1454
+
+  dea_next: *dea
+
+  syslog_aggregator:
+    address: 0.syslog-aggregator.default.<%= deployment_name %>.microbosh
+    port: 54321
+
+  nfs_server:
+    address: 0.nfs-server.default.<%= deployment_name %>.microbosh
+    network: "*.<%= deployment_name %>.microbosh"
+    idmapd_domain: dfw2
+
+  debian_nfs_server:
+    no_root_squash: true
+
+  databases: &databases
+    db_scheme: postgres
+    address: 0.postgres.default.<%= deployment_name %>.microbosh
+    port: 5524
+    roles:
+      - tag: admin
+        name: ccadmin
+        password: <%= common_password %>
+      - tag: admin
+        name: uaaadmin
+        password: <%= common_password %>
+    databases:
+      - tag: cc
+        name: ccdb
+        citext: true
+      - tag: uaa
+        name: uaadb
+        citext: true
+
+  ccdb: &ccdb
+    db_scheme: postgres
+    address: 0.postgres.default.<%= deployment_name %>.microbosh
+    port: 5524
+    roles:
+      - tag: admin
+        name: ccadmin
+        password: <%= common_password %>
+    databases:
+      - tag: cc
+        name: ccdb
+        citext: true
+
+  ccdb_ng: *ccdb
+
+  uaadb:
+    db_scheme: postgresql
+    address: 0.postgres.default.<%= deployment_name %>.microbosh
+    port: 5524
+    roles:
+      - tag: admin
+        name: uaaadmin
+        password: <%= common_password %>
+    databases:
+      - tag: uaa
+        name: uaadb
+        citext: true
+
+  cc_api_version: v2
+
+  cc: &cc
+    logging_level: debug
+    external_host: ccng
+    srv_api_uri: <%= protocol %>://api.<%= root_domain %>
+    cc_partition: default
+    db_encryption_key: <%= common_password %>
+    bootstrap_admin_email: "eric.lee@tier.com"
+    bulk_api_password: <%= common_password %>
+    uaa_resource_id: cloud_controller
+    staging_upload_user: upload
+    staging_upload_password: <%= common_password %>
+    resource_pool:
+      resource_directory_key: cf-att-io-cc-resources
+    packages:
+      app_package_directory_key: cf-att-io-cc-packages
+    droplets:
+      droplet_directory_key: cf-att-io-cc-droplets
+    default_quota_definition: runaway
+
+  ccng: *cc
+
+  login:
+    enabled: false
+
+  uaa:
+    url: <%= protocol %>://uaa.<%= root_domain %>
+    no_ssl: <%= protocol == "http" %>
+    catalina_opts: -Xmx768m -XX:MaxPermSize=256m
+    resource_id: account_manager
+    jwt:
+      signing_key: |
+        -----BEGIN RSA PRIVATE KEY-----
+        MIICXAIBAAKBgQDHFr+KICms+tuT1OXJwhCUmR2dKVy7psa8xzElSyzqx7oJyfJ1
+        JZyOzToj9T5SfTIq396agbHJWVfYphNahvZ/7uMXqHxf+ZH9BL1gk9Y6kCnbM5R6
+        0gfwjyW1/dQPjOzn9N394zd2FJoFHwdq9Qs0wBugspULZVNRxq7veq/fzwIDAQAB
+        AoGBAJ8dRTQFhIllbHx4GLbpTQsWXJ6w4hZvskJKCLM/o8R4n+0W45pQ1xEiYKdA
+        Z/DRcnjltylRImBD8XuLL8iYOQSZXNMb1h3g5/UGbUXLmCgQLOUUlnYt34QOQm+0
+        KvUqfMSFBbKMsYBAoQmNdTHBaz3dZa8ON9hh/f5TT8u0OWNRAkEA5opzsIXv+52J
+        duc1VGyX3SwlxiE2dStW8wZqGiuLH142n6MKnkLU4ctNLiclw6BZePXFZYIK+AkE
+        xQ+k16je5QJBAN0TIKMPWIbbHVr5rkdUqOyezlFFWYOwnMmw/BKa1d3zp54VP/P8
+        +5aQ2d4sMoKEOfdWH7UqMe3FszfYFvSu5KMCQFMYeFaaEEP7Jn8rGzfQ5HQd44ek
+        lQJqmq6CE2BXbY/i34FuvPcKU70HEEygY6Y9d8J3o6zQ0K9SYNu+pcXt4lkCQA3h
+        jJQQe5uEGJTExqed7jllQ0khFJzLMx0K6tj0NeeIzAaGCQz13oo2sCdeGRHO4aDh
+        HH6Qlq/6UOV5wP8+GAcCQFgRCcB+hrje8hfEEefHcFpyKH+5g1Eu1k0mLrxK2zd+
+        4SlotYRHgPCEubokb2S1zfZDWIXW3HmggnGgM949TlY=
+        -----END RSA PRIVATE KEY-----
+      verification_key: |
+        -----BEGIN PUBLIC KEY-----
+        MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDHFr+KICms+tuT1OXJwhCUmR2d
+        KVy7psa8xzElSyzqx7oJyfJ1JZyOzToj9T5SfTIq396agbHJWVfYphNahvZ/7uMX
+        qHxf+ZH9BL1gk9Y6kCnbM5R60gfwjyW1/dQPjOzn9N394zd2FJoFHwdq9Qs0wBug
+        spULZVNRxq7veq/fzwIDAQAB
+        -----END PUBLIC KEY-----
+    cc:
+      client_secret: <%= common_password %>
+    admin:
+      client_secret: <%= common_password %>
+    batch:
+      username: batch
+      password: <%= common_password %>
+    client:
+      autoapprove:
+        - cf
+    clients:
+      cf:
+        override: true
+        authorized-grant-types: password,implicit,refresh_token
+        authorities: uaa.none
+        scope: cloud_controller.read,cloud_controller.write,openid,password.write,cloud_controller.admin,scim.read,scim.write
+        access-token-validity: 7200
+        refresh-token-validity: 1209600
+      admin:
+        secret: <%= common_password %>
+        authorized-grant-types: client_credentials
+        authorities: clients.read,clients.write,clients.secret,password.write,scim.read,uaa.admin
+    scim:
+      userids_enabled: true
+      users:
+      - admin|<%= common_password %>|scim.write,scim.read,openid,cloud_controller.admin,uaa.admin,password.write
+      - services|<%= common_password %>|scim.write,scim.read,openid,cloud_controller.admin

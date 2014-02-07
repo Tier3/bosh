@@ -1,0 +1,57 @@
+<%
+# name of the micro-BOSH deployment
+deployment_name = "micro-bosh-tier3"
+# The ID of the hardware group in which to place deployed servers,
+# get this from the URL of the group in Control
+hardware_group_id = 5371
+# The VLAN on which to place deployed servers, view networks in Control
+# to get the names of your networks
+vlan = "vlan_140_172.21.140"
+# Your API key
+api_key = "123456789"
+# Your API password
+api_password = "987654321"
+# Your account alias
+account_alias = "ABC"
+# The datacenter alias in which to deploy servers
+location_alias = "WA1"
+%>
+
+name: <%= deployment_name %>
+
+logging:
+  file: /tmp/micro_bosh.log
+  level: DEBUG 
+
+network:
+  type: dynamic
+  cloud_properties:
+    name: <%= vlan %>
+
+resources:
+  persistent_disk: 65536
+  cloud_properties:
+    ram: 1024
+    cpu: 1
+    group_id: <%= hardware_group_id %>
+    shared_name: BOSH
+
+cloud:
+  plugin: tier3
+  properties:
+    agent:
+      ntp: []
+      blobstore:
+        provider: local
+        options:
+          blobstore_path: /var/vcap/micro_bosh/data/cache
+      mbus:
+    tier3:
+      api:
+        url: https://api.tier3.com/rest
+        key: <%= api_key %>
+        password: <%= api_password %>
+        account_alias: <%= account_alias %>
+        location_alias: <%= location_alias %>
+
+
