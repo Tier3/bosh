@@ -1,0 +1,545 @@
+---
+<%
+# Find your director UUID by running 'bosh status'
+director_uuid = "e5d3abe8-4dfc-4e1f-8d29-b2b784736ba7"
+protocol = "http"
+# This is the version number of the Cloud Foundry release you uploaded
+cf_release = "161"
+# The password that will be configured in Cloud Foundry
+common_password = "mypassword"
+# The root domain for your Cloud Foundry apps
+root_domain = "cloudfoundry.mycompany.com"
+# The name of this deployment
+deployment_name = "tier3-cloudfoundry"
+# The ID of the hardware group in which to place deployed servers,
+# get this from the URL of the group in Control
+hardware_group_id = 11307
+# The IP address of the micro-BOSH server you previously set up
+micro_bosh_server_ip = "10.91.2.34"
+# The VLAN on which to place deployed servers, view networks in Control
+# to get the names of your networks
+vlan = "vlan_2302_10.91.2"
+# default cc admin
+admin_email = "me@mycompany.com"
+%>
+
+name: <%= deployment_name %>
+director_uuid: <%= director_uuid %>
+
+releases:
+ - name: cf
+   version: <%= cf_release %>
+
+compilation:
+  workers: 3
+  network: default
+  reuse_compilation_vms: true
+  cloud_properties:
+    ram: 4096
+    cpu: 2
+    group_id: <%= hardware_group_id %>
+    shared_name: WORK
+
+update:
+  canaries: 1
+  canary_watch_time: 30000-300000
+  update_watch_time: 30000-300000
+  max_in_flight: 4
+
+networks:
+- name: default
+  type: dynamic
+  dns:
+  - <%= micro_bosh_server_ip %>
+  - 172.17.1.26
+  - 172.17.1.27
+  cloud_properties:
+    name: <%= vlan %>
+
+resource_pools:
+  - name: common
+    network: default
+    size: 9
+    stemcell:
+      name: bosh-stemcell
+      version: latest
+    cloud_properties:
+      ram: 2048
+      cpu: 1
+      group_id: <%= hardware_group_id %>
+      shared_name: SMALL
+
+  - name: large
+    network: default
+    size: 1
+    stemcell:
+      name: bosh-stemcell
+      version: latest
+    cloud_properties:
+      ram: 4096
+      cpu: 2
+      group_id: <%= hardware_group_id %>
+      shared_name: LARGE
+
+jobs:
+  - name: nats
+    template:
+      - nats
+    release: cf
+    instances: 1
+    resource_pool: common
+    networks:
+      - name: default
+        default: [dns, gateway]
+
+  - name: logs
+    template:
+      - syslog_aggregator
+      - loggregator
+    release: cf
+    instances: 1
+    resource_pool: common
+    persistent_disk: 65536
+    networks:
+      - name: default
+        default: [dns, gateway]
+
+  - name: postgres
+    template:
+      - postgres
+    release: cf
+    instances: 1
+    resource_pool: common
+    persistent_disk: 65536
+    networks:
+      - name: default
+        default: [dns, gateway]
+    properties:
+      db: databases
+
+  - name: nfs_server
+    template:
+      - debian_nfs_server
+    release: cf
+    instances: 1
+    resource_pool: common
+    persistent_disk: 65536
+    networks:
+      - name: default
+        default: [dns, gateway]
+
+  - name: uaa
+    template:
+      - uaa
+    release: cf
+    instances: 1
+    resource_pool: common
+    networks:
+      - name: default
+        default: [dns, gateway]
+
+  - name: cloud_controller
+    template:
+      - cloud_controller_ng
+    release: cf
+    instances: 1
+    resource_pool: common
+    networks:
+      - name: default
+        default: [dns, gateway]
+    properties:
+      ccdb: ccdb
+
+  - name: router
+    template:
+      - gorouter
+      - loggregator_trafficcontroller
+    release: cf
+    instances: 1
+    resource_pool: common
+    networks:
+      - name: default
+        default: [dns, gateway]
+
+  - name: haproxy
+    template:
+      - haproxy
+    release: cf
+    instances: 1
+    resource_pool: common
+    networks:
+    - name: default
+      default: [dns, gateway]
+
+  - name: health_manager
+    template:
+      - health_manager_next
+    release: cf
+    instances: 1
+    resource_pool: common
+    networks:
+      - name: default
+        default: [dns, gateway]
+
+  - name: dea
+    template:
+      - dea_next
+      - dea_logging_agent
+    release: cf
+    instances: 1
+    resource_pool: large
+    networks:
+      - name: default
+        default: [dns, gateway]
+    properties:
+      loggregator_endpoint:
+        host: 0.logs.default.<%= deployment_name %>.microbosh
+
+properties:
+  domain: <%= root_domain %>
+  system_domain: <%= root_domain %>
+  system_domain_organization: "demo"
+  app_domains:
+    - <%= root_domain %>
+  support_address: http://support.<%= root_domain %>
+  description: "Cloud Foundry v2 sponsored by Pivotal"
+
+  networks:
+    apps: default
+    management: default
+
+  ssl:
+    skip_cert_verify: true
+
+  nats:
+    address: 0.nats.default.<%= deployment_name %>.microbosh
+    port: 4222
+    use_gnatsd: true
+    user: nats
+    password: <%= common_password %>
+    authorization_timeout: 10
+    machines:
+      - 0.nats.default.<%= deployment_name %>.microbosh
+
+  router:
+    status:
+      port: 8090
+      user: gorouter
+      password: <%= common_password %>
+    servers:
+      z1:
+        - 0.router.default.<%= deployment_name %>.microbosh
+      z2:
+        - 0.router.default.<%= deployment_name %>.microbosh
+
+  zone: z1
+
+  dea: &dea
+    memory_mb: 4096
+    disk_mb: 16384
+    directory_server_protocol: <%= protocol %>
+    mtu: 1454
+
+  dea_next: *dea
+
+  syslog_aggregator:
+    address: 0.logs.default.<%= deployment_name %>.microbosh
+    port: 54321
+
+  loggregator:
+    incoming_port: 3456
+    maxRetainedLogMessages: 1000
+    outgoing_port: 8080
+    trafficcontroller: 0.router.default.<%= deployment_name %>.microbosh
+    servers:
+      z1:
+        - 0.logs.default.<%= deployment_name %>.microbosh
+  loggregator_endpoint:
+    shared_secret: <%= common_password %>
+
+  traffic_controller:
+    zone: z1
+
+  nfs_server:
+    address: 0.nfs-server.default.<%= deployment_name %>.microbosh
+    network: "*.<%= deployment_name %>.microbosh"
+    idmapd_domain: dfw2
+
+  debian_nfs_server:
+    no_root_squash: true
+
+  databases: &databases
+    db_scheme: postgres
+    address: 0.postgres.default.<%= deployment_name %>.microbosh
+    port: 5524
+    roles:
+      - tag: admin
+        name: ccadmin
+        password: <%= common_password %>
+      - tag: admin
+        name: uaaadmin
+        password: <%= common_password %>
+    databases:
+      - tag: cc
+        name: ccdb
+        citext: true
+      - tag: uaa
+        name: uaadb
+        citext: true
+
+  ccdb: &ccdb
+    db_scheme: postgres
+    address: 0.postgres.default.<%= deployment_name %>.microbosh
+    port: 5524
+    roles:
+      - tag: admin
+        name: ccadmin
+        password: <%= common_password %>
+    databases:
+      - tag: cc
+        name: ccdb
+        citext: true
+
+  ccdb_ng: *ccdb
+
+  uaadb:
+    db_scheme: postgresql
+    address: 0.postgres.default.<%= deployment_name %>.microbosh
+    port: 5524
+    roles:
+      - tag: admin
+        name: uaaadmin
+        password: <%= common_password %>
+    databases:
+      - tag: uaa
+        name: uaadb
+        citext: true
+
+  cc_api_version: v2
+
+  cc: &cc
+    logging_level: debug
+    external_host: ccng
+    srv_api_uri: <%= protocol %>://api.<%= root_domain %>
+    cc_partition: default
+    db_encryption_key: <%= common_password %>
+    bootstrap_admin_email: "eric.lee@tier3.com"
+    bulk_api_password: <%= common_password %>
+    uaa_resource_id: cloud_controller
+    staging_upload_user: upload
+    staging_upload_password: <%= common_password %>
+    default_fog_connection:
+      provider: Local
+      local_root: /var/vcap/nfs/shared
+    default_quota_definition: default
+    quota_definitions:
+      default:
+        memory_limit: 10240
+        non_basic_services_allowed: true
+        total_routes: 1000
+        total_services: 100
+        trial_db_allowed: true
+
+  ccng:
+    app_events:
+      cutoff_age_in_days: 31
+    app_usage_events:
+      cutoff_age_in_days: 31
+    audit_events:
+      cutoff_age_in_days: 31
+    broker_client_timeout_seconds: 60
+    buildpacks:
+      buildpack_directory_key: bosh.elee.dom-cc-buildpacks
+      cdn: null
+    bulk_api_password: <%= common_password %>
+    db_encryption_key: <%= common_password %>
+    default_app_memory: 1024
+    default_fog_connection:
+      provider: Local
+      local_root: /var/vcap/nfs/shared
+    default_quota_definition: default
+    development_mode: false
+    disable_custom_buildpacks: false
+    droplets:
+      cdn: null
+      droplet_directory_key: <%= root_domain %>-cc-droplets
+    hm9000_noop: false
+    jobs:
+      app_bits_packer:
+        timeout_in_seconds: null
+      app_events_cleanup:
+        timeout_in_seconds: null
+      app_usage_events_cleanup:
+        timeout_in_seconds: null
+      blobstore_delete:
+        timeout_in_seconds: null
+      blobstore_upload:
+        timeout_in_seconds: null
+      droplet_deletion:
+        timeout_in_seconds: null
+      droplet_upload:
+        timeout_in_seconds: null
+      global:
+        timeout_in_seconds: 14400
+      model_deletion:
+        timeout_in_seconds: null
+    maximum_app_disk_in_mb: 2048
+    newrelic:
+      capture_params: false
+      developer_mode: false
+      environment_name: null
+      license_key: null
+      monitor_mode: false
+      transaction_tracer:
+        enabled: true
+        record_sql: obfuscated
+    packages:
+      app_package_directory_key: <%= root_domain %>-cc-packages
+      cdn: null
+    process_group: cloud_controller
+    quota_definitions:
+      default:
+        memory_limit: 10240
+        non_basic_services_allowed: true
+        total_routes: 1000
+        total_services: 100
+        trial_db_allowed: true
+    resource_pool:
+      cdn: null
+      resource_directory_key: <%= root_domain %>-cc-resources
+    srv_api_uri: <%= protocol %>://api.<%= root_domain %>
+    staging_upload_user: upload
+    staging_upload_password: <%= common_password %>
+    tasks_disabled: false
+
+  login:
+    enabled: false
+
+  uaa:
+    login:
+      addnew: false
+    url: <%= protocol %>://uaa.<%= root_domain %>
+    no_ssl: <%= protocol == "http" %>
+    catalina_opts: -Xmx768m -XX:MaxPermSize=256m
+    resource_id: account_manager
+    jwt:
+      signing_key: |
+        -----BEGIN RSA PRIVATE KEY-----
+        MIICXAIBAAKBgQDHFr+KICms+tuT1OXJwhCUmR2dKVy7psa8xzElSyzqx7oJyfJ1
+        JZyOzToj9T5SfTIq396agbHJWVfYphNahvZ/7uMXqHxf+ZH9BL1gk9Y6kCnbM5R6
+        0gfwjyW1/dQPjOzn9N394zd2FJoFHwdq9Qs0wBugspULZVNRxq7veq/fzwIDAQAB
+        AoGBAJ8dRTQFhIllbHx4GLbpTQsWXJ6w4hZvskJKCLM/o8R4n+0W45pQ1xEiYKdA
+        Z/DRcnjltylRImBD8XuLL8iYOQSZXNMb1h3g5/UGbUXLmCgQLOUUlnYt34QOQm+0
+        KvUqfMSFBbKMsYBAoQmNdTHBaz3dZa8ON9hh/f5TT8u0OWNRAkEA5opzsIXv+52J
+        duc1VGyX3SwlxiE2dStW8wZqGiuLH142n6MKnkLU4ctNLiclw6BZePXFZYIK+AkE
+        xQ+k16je5QJBAN0TIKMPWIbbHVr5rkdUqOyezlFFWYOwnMmw/BKa1d3zp54VP/P8
+        +5aQ2d4sMoKEOfdWH7UqMe3FszfYFvSu5KMCQFMYeFaaEEP7Jn8rGzfQ5HQd44ek
+        lQJqmq6CE2BXbY/i34FuvPcKU70HEEygY6Y9d8J3o6zQ0K9SYNu+pcXt4lkCQA3h
+        jJQQe5uEGJTExqed7jllQ0khFJzLMx0K6tj0NeeIzAaGCQz13oo2sCdeGRHO4aDh
+        HH6Qlq/6UOV5wP8+GAcCQFgRCcB+hrje8hfEEefHcFpyKH+5g1Eu1k0mLrxK2zd+
+        4SlotYRHgPCEubokb2S1zfZDWIXW3HmggnGgM949TlY=
+        -----END RSA PRIVATE KEY-----
+      verification_key: |
+        -----BEGIN PUBLIC KEY-----
+        MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDHFr+KICms+tuT1OXJwhCUmR2d
+        KVy7psa8xzElSyzqx7oJyfJ1JZyOzToj9T5SfTIq396agbHJWVfYphNahvZ/7uMX
+        qHxf+ZH9BL1gk9Y6kCnbM5R60gfwjyW1/dQPjOzn9N394zd2FJoFHwdq9Qs0wBug
+        spULZVNRxq7veq/fzwIDAQAB
+        -----END PUBLIC KEY-----
+    cc:
+      client_secret: <%= common_password %>
+    admin:
+      client_secret: <%= common_password %>
+    batch:
+      username: batch
+      password: <%= common_password %>
+    client:
+      autoapprove:
+        - cf
+    clients:
+      cf:
+        override: true
+        authorized-grant-types: password,implicit,refresh_token
+        authorities: uaa.none
+        scope: cloud_controller.read,cloud_controller.write,openid,password.write,cloud_controller.admin,scim.read,scim.write
+        access-token-validity: 7200
+        refresh-token-validity: 1209600
+      admin:
+        secret: <%= common_password %>
+        authorized-grant-types: client_credentials
+        authorities: clients.read,clients.write,clients.secret,password.write,scim.read,uaa.admin
+    scim:
+      userids_enabled: true
+      users:
+      - admin|<%= common_password %>|scim.write,scim.read,openid,cloud_controller.admin,uaa.admin,password.write
+      - services|<%= common_password %>|scim.write,scim.read,openid,cloud_controller.admin
+
+  ha_proxy:
+    # self-signed
+    ssl_pem: |
+      -----BEGIN CERTIFICATE-----
+      MIIDRjCCAi4CCQCwnBH3bJzmgDANBgkqhkiG9w0BAQUFADBlMQswCQYDVQQGEwJV
+      UzELMAkGA1UECAwCT1IxETAPBgNVBAcMCFBvcnRsYW5kMQ8wDQYDVQQKDAZTYXZ2
+      aXMxDzANBgNVBAsMBkFwcEZvZzEUMBIGA1UEAwwLKi5zdjEuYWYuY20wHhcNMTMx
+      MTA4MDQwODM2WhcNMTQxMTA4MDQwODM2WjBlMQswCQYDVQQGEwJVUzELMAkGA1UE
+      CAwCT1IxETAPBgNVBAcMCFBvcnRsYW5kMQ8wDQYDVQQKDAZTYXZ2aXMxDzANBgNV
+      BAsMBkFwcEZvZzEUMBIGA1UEAwwLKi5zdjEuYWYuY20wggEiMA0GCSqGSIb3DQEB
+      AQUAA4IBDwAwggEKAoIBAQDrmJII1wkTqpmgh0awmMXvR0rRjt2g91yTYE7FcAE4
+      /Q9CY/8QmufI82L8mgvY5Ui6SuTPcxtJEGUvC5uNvcWhNpbfIsvyyWT2ZwPDN/6L
+      K8P39zy2yEIy65fHH0ehREtsuivVtKoBlxj+Y2bIC2l20hJ/2l1448e0p7fzJDQG
+      WO3fJPAM5zKC7+MXiNcaEhxN5v2FVO8+Os5QkjRSvvc7w8WTKywOd0mM+uxE2TRB
+      x+vG3rz3B9SAh9JbhN5gyUHnSXHUEBrYkHT9ojcugCtgx2jVJIphzOu2q+ADoNvm
+      0aBnPnpYtA42IQLzXP6Z6g7/AQi8QXVpU+mWtK66sp+DAgMBAAEwDQYJKoZIhvcN
+      AQEFBQADggEBAJLG0woV8k/rTmJ/01Tl5thPllO+ngNodbiHiPBBrswEwtVZOQbi
+      XY99VH43glyEO4Agr184iFcS/sDOMZlx5aXFzUrIunfQt8xP0QgjK04og/cMKUKe
+      /u9IIer5nKBEX8nu2tulFGIo4A0FebKauCwjEtwk/7p4n1zakc+d3hY4Dsv9rixb
+      bF09OZ1Aal6KkOc88lcgNpNLZfsIwOAPaOZAPAtfD3mR/gknfxYguj0AyJ8TY82J
+      PLONPWo830Y3GhVCy9BglGoa5ZrsE4TnsGTYdp567/+CnrI+ciTusWjIwSKk3A3o
+      Urp3KoCVuHCi4wvgZJzQnLQAOLrE1Ea82M8=
+      -----END CERTIFICATE-----
+      -----BEGIN CERTIFICATE REQUEST-----
+      MIICqjCCAZICAQAwZTELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAk9SMREwDwYDVQQH
+      DAhQb3J0bGFuZDEPMA0GA1UECgwGU2F2dmlzMQ8wDQYDVQQLDAZBcHBGb2cxFDAS
+      BgNVBAMMCyouc3YxLmFmLmNtMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC
+      AQEA65iSCNcJE6qZoIdGsJjF70dK0Y7doPdck2BOxXABOP0PQmP/EJrnyPNi/JoL
+      2OVIukrkz3MbSRBlLwubjb3FoTaW3yLL8slk9mcDwzf+iyvD9/c8tshCMuuXxx9H
+      oURLbLor1bSqAZcY/mNmyAtpdtISf9pdeOPHtKe38yQ0Bljt3yTwDOcygu/jF4jX
+      GhIcTeb9hVTvPjrOUJI0Ur73O8PFkyssDndJjPrsRNk0Qcfrxt689wfUgIfSW4Te
+      YMlB50lx1BAa2JB0/aI3LoArYMdo1SSKYczrtqvgA6Db5tGgZz56WLQONiEC81z+
+      meoO/wEIvEF1aVPplrSuurKfgwIDAQABoAAwDQYJKoZIhvcNAQEFBQADggEBABhE
+      rER+Rq6JE3jH32MAV4l2QVRhuH1puJaWQLwMrNNtHyKb8KBcH31NFLRSTuD+p8eg
+      v9JQuG7uR0diD/j92KjbWcDRG6XZr0mzxRzpWuh24MBf+wDb6Ics/xm1W3ijU8o/
+      NU3KTIhh7ZpgmMf8t8pKS4mcXiYLMqE5c5TMovFxZ1dtCfreXEyYJJGywB2vWXI0
+      6w+mkIRrV/b6QcpkLSkmW6T838iizLUETNxrek/f4kaK4AKdZLMbLb2PtC+90VFo
+      UlcDHy8NsdwnrBpZT3VmEDgAISonJkvtZK8FmKYtT4/nEP6In9HjxU31uHg+Tb8l
+      uVTWwTzb5X1hnYSHhyU=
+      -----END CERTIFICATE REQUEST-----
+      -----BEGIN PRIVATE KEY-----
+      MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDrmJII1wkTqpmg
+      h0awmMXvR0rRjt2g91yTYE7FcAE4/Q9CY/8QmufI82L8mgvY5Ui6SuTPcxtJEGUv
+      C5uNvcWhNpbfIsvyyWT2ZwPDN/6LK8P39zy2yEIy65fHH0ehREtsuivVtKoBlxj+
+      Y2bIC2l20hJ/2l1448e0p7fzJDQGWO3fJPAM5zKC7+MXiNcaEhxN5v2FVO8+Os5Q
+      kjRSvvc7w8WTKywOd0mM+uxE2TRBx+vG3rz3B9SAh9JbhN5gyUHnSXHUEBrYkHT9
+      ojcugCtgx2jVJIphzOu2q+ADoNvm0aBnPnpYtA42IQLzXP6Z6g7/AQi8QXVpU+mW
+      tK66sp+DAgMBAAECggEBAKEut7Juk9otnH9ULYvCaaDDsK9gQ8bNlTuK5zly4JNB
+      pr/wM+ADatJzmWRia/qPG0vA03wOLzu0iNU/5sN5cw1RkLTGVKwdFwLxBYT4+R/z
+      6FXsg1A1//xgbG2hu9rcI5IWaMkDmlAONN5N2VLBY/0Tye5I0ixUAhxZpqMlQKaZ
+      vo++HCbyqOPmcHDzaoH2rRqqJxsMwXLJpq3jpy9p8RrlYL5PBry7EGmjV227cClf
+      HeMpx1BUxJ3nFCXKDkxHAcRHjOvI8un+3oQUP/Vhz7CyEpEHLZ7uM2Nt2y8wgrr9
+      w36qLVMIM7Wzs8kgvPswHXr3Ynyjy1n/GYzyA/46YEECgYEA/2rwh5lXpVl5kOxK
+      xHCFq2WSbSvsvPqfw+ZCqUi+1cz+inJAssRtQmw8kXdnLoj1qtAawKaq7LrvVQ2S
+      7HxQuVZrNcM70mTAAwfRgx3vkILhnpRVcDzL9IGvC2kO6o3vvC4ARaUnTXY7EAJF
+      fgRoxRNLMeM0QUOmftJDULjkY6ECgYEA7CIQIUgCXEGcnmsB/QymB+x5WKJUl7EF
+      9JcYPWN2idVG/RzulCX+7AJXbYp5EBd0sf0t6CWnpNidsMtMLDgzL00Dhc8Ckn0c
+      VACdBp2jY5bsXbDZbshYG+eNk3UTu7EGHyTYNc1Xt9w/5oZAV5tZ4KLD/xPNK8Fb
+      kTcgs+f5MKMCgYB2yjWz2w14SXTQghUD55FDdan0PEmOWsGTSrQWJ08aAI0htqGA
+      gvqNuekxfmburaQUHVVT5C/6ibZlyDpc4jRo/lg+WN6pq1HiFvDKGlIg0747EqHp
+      4Vy6CtZuaB4X2It26a4WtgjhbetqNqQ7R7GydpayTQkwkVYOBZxpHpSaAQKBgQDM
+      D/PYjx5bE+iBjwA86v1gw59qVX69SKJY6WptQtNh8gpTGvmi1eMjmjJr28sbeOnE
+      F4Pgpwnlj71W15mQbVDug6OTs34Jkk002wLYgMp+eiLyJK8C6ega1VSoJflTrnwX
+      1gNzG22+2nvuf/6CtyJI2uB+Q2J/ea3kJLwCPWo/+QKBgGbHwnaAWgpHB8re0t+B
+      qizjWST8c6GbSV21t5Eyatc3ddh4hqyAZe7gw6zJsQpht4enui+mPUyALRsFScwe
+      y1BMAwbR+TyQSTDEKxKNpz0cNWv7ZQm8EiicMYBVXJ6FVlV9zN9TppCyU4FaTUsk
+      UTfisxAPp/8an9LWVnwbNOwJ
+      -----END PRIVATE KEY-----
+
