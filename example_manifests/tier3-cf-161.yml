@@ -411,7 +411,11 @@ properties:
     staging_upload_user: upload
     staging_upload_password: <%= common_password %>
     tasks_disabled: false
-
+    stacks:
+      - name: "lucid64"
+        description: "Ubuntu 10.04"    
+      - name: "mswin-clr"
+        description: "Microsoft Windows / .Net 64 bit"
   login:
     enabled: false
 
