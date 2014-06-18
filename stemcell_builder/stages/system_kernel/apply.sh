@@ -10,7 +10,9 @@ mkdir -p $chroot/tmp
 
 cp $assets_dir/*.deb $chroot/tmp/
 
-pkg_mgr install wireless-crda
+run_in_chroot $chroot "apt-get update"
+run_in_chroot $chroot "apt-get -f -y --force-yes --no-install-recommends install wireless-crda"
+run_in_chroot $chroot "apt-get clean"
 
 run_in_chroot $chroot "dpkg -i /tmp/linux-headers-3.0.0-32_3.0.0-32.51~lucid1_all.deb"
 run_in_chroot $chroot "dpkg -i /tmp/linux-headers-3.0.0-32-virtual_3.0.0-32.51~lucid1_amd64.deb"
