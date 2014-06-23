@@ -105,6 +105,12 @@ module Bosh::Tier3Cloud
           raise ArgumentError, "Invalid env spec, Hash expected, #{env.class} provided"
         end
 
+        location_alias = resource_pool['location_alias'] || api_properties['location_alias']
+
+        unless location_alias.is_a?(String)
+          raise ArgumentError, "Invalid location_alias, string expected, #{location_alias.class} provided"
+        end
+
         hardware_group_id = resource_pool['group_id']
 
         unless hardware_group_id.is_a?(Integer)
@@ -117,7 +123,7 @@ module Bosh::Tier3Cloud
         memory_mb = resource_pool['ram'] || 2048
         memory_gb = memory_mb / 1024
 
-        logger.debug("create_vm(#{agent_id}, ...) Template: #{stemcell_id} Alias: #{vm_alias} Hardware group ID: #{hardware_group_id} Cpu: #{cpu} MemoryGB: #{memory_gb}")
+        logger.debug("create_vm(#{agent_id}, ...) Template: #{stemcell_id} Alias: #{vm_alias} Location: #{location_alias} Hardware group ID: #{hardware_group_id} Cpu: #{cpu} MemoryGB: #{memory_gb}")
 
         data = {
           # TODO: this is a temporary hack to work around the fact that the Platform is case-sensitive
@@ -132,7 +138,7 @@ module Bosh::Tier3Cloud
           Network: vlan_name,
           # ExtraDriveGB: TODO persistent disk
           AccountAlias: api_properties['account_alias'],
-          LocationAlias: api_properties['location_alias']
+          LocationAlias: location_alias
         }
 
         created_vm_name = nil
@@ -144,7 +150,7 @@ module Bosh::Tier3Cloud
         request_id = resp_data['RequestID']
 
         if success and request_id > 0
-          @client.wait_for(request_id, api_properties['location_alias']) do |resp_data|
+          @client.wait_for(request_id, location_alias) do |resp_data|
             created_vm_name = resp_data['Servers'][0]
           end
         else
@@ -180,7 +186,7 @@ module Bosh::Tier3Cloud
           request_id = resp_data['RequestID']
 
           if success and request_id > 0
-            @client.wait_for(request_id, api_properties['location_alias'])
+            @client.wait_for(request_id, get_location_of_vm(instance_id))
           else
             status_code = resp_data['StatusCode']
             message = resp_data['Message']
@@ -232,7 +238,7 @@ module Bosh::Tier3Cloud
           request_id = resp_data['RequestID']
 
           if success and request_id > 0
-            @client.wait_for(request_id, api_properties['location_alias'])
+            @client.wait_for(request_id, get_location_of_vm(instance_id))
           else
             status_code = resp_data['StatusCode']
             message = resp_data['Message']
@@ -281,7 +287,7 @@ module Bosh::Tier3Cloud
         data = {
           SizeGB: size / 1024,
           AccountAlias: api_properties['account_alias'],
-          Location: api_properties['location_alias']
+          Location: get_location_of_vm(instance_id)
         }
 
         response = @client.post('/virtualdisk/create/json', data)
@@ -310,7 +316,7 @@ module Bosh::Tier3Cloud
         data = {
           VirtualDiskID: disk_id,
           AccountAlias: api_properties['account_alias'],
-          Location: api_properties['location_alias']
+          Location: api_properties['location_alias']  # TODO: fix me!
         }
 
         response = @client.post('/virtualdisk/delete/json', data)
@@ -336,7 +342,7 @@ module Bosh::Tier3Cloud
           VirtualDiskID: disk_id,
           ServerName: instance_id,
           AccountAlias: api_properties['account_alias'],
-          Location: api_properties['location_alias']
+          Location: get_location_of_vm(instance_id)
         }
 
         response = @client.post('/virtualdisk/attach/json', data)
@@ -388,7 +394,7 @@ module Bosh::Tier3Cloud
         data = {
           VirtualDiskID: disk_id,
           AccountAlias: api_properties['account_alias'],
-          Location: api_properties['location_alias']
+          Location: get_location_of_vm(instance_id)
         }
 
         response = @client.post('/virtualdisk/detach/json', data)
@@ -425,7 +431,7 @@ module Bosh::Tier3Cloud
         data = {
           ServerName: vm_id,
           AccountAlias: api_properties['account_alias'],
-          Location: api_properties['location_alias']
+          Location: get_location_of_vm(vm_id)
         }
 
         response = @client.post('/virtualdisk/list/json', data)
@@ -456,7 +462,7 @@ module Bosh::Tier3Cloud
 
         data = {
           AccountAlias: api_properties['account_alias'],
-          Location: api_properties['location_alias']
+          Location: api_properties['location_alias']  # TODO: fix me!
         }
 
         response = @client.post('/virtualdisk/list/json', data)
@@ -516,7 +522,7 @@ module Bosh::Tier3Cloud
         request_id = resp_data['RequestID']
 
         if success and request_id > 0
-          @client.wait_for(request_id, api_properties['location_alias'])
+          @client.wait_for(request_id, get_location_of_vm(instance_id))
         else
           status_code = resp_data['StatusCode']
           message = resp_data['Message']
@@ -539,7 +545,7 @@ module Bosh::Tier3Cloud
         request_id = resp_data['RequestID']
 
         if success and request_id > 0
-          @client.wait_for(request_id, api_properties['location_alias'])
+          @client.wait_for(request_id, get_location_of_vm(instance_id))
         else
           status_code = resp_data['StatusCode']
           message = resp_data['Message']
@@ -572,6 +578,11 @@ module Bosh::Tier3Cloud
       end
 
       raise ArgumentError, "missing configuration parameters > #{missing_keys.join(', ')}" unless missing_keys.empty?
+    end
+
+    def get_location_of_vm(instance_id)
+      server_info = get_vm(instance_id)
+      return server_info["Location"]
     end
 
     def generate_disk_env
