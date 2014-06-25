@@ -3,6 +3,25 @@
 require 'rspec'
 require 'cloud/tier3'
 
+module Bosh::Tier3Cloud
+  class Cloud
+    def get_location_of_vm(instance_id)
+      return instance_id[0,3]
+    end
+
+    def get_agent_ip_address(vm_name)
+      return '192.168.1.2'
+    end
+
+    def get_agent_password(vm_name)
+      return 'password'
+    end
+
+    def update_agent_settings(vm_name)
+    end
+  end
+end
+
 def mock_cloud_options
   {
     'tier3' => {

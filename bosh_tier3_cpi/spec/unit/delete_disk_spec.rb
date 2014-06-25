@@ -10,9 +10,9 @@ describe Bosh::Tier3Cloud::Cloud do
       cloud = make_cloud do |mock_client|
         # Stub and verify the delete disk API call
         mock_client.should_receive(:post).with('/virtualdisk/delete/json', anything()) do |url,data|
-          expect(data['VirtualDiskID']).to eq 'Disk1'
-          expect(data['AccountAlias']).to eq 'ELE'
-          expect(data['Location']).to eq 'QA1'
+          expect(data[:VirtualDiskID]).to eq 'Disk1'
+          expect(data[:AccountAlias]).to eq 'ELE'
+          expect(data[:Location]).to eq 'QA1'
 
           {
               :Success => true,
@@ -22,7 +22,7 @@ describe Bosh::Tier3Cloud::Cloud do
         end
       end
 
-      cloud.delete_disk('Disk1')
+      cloud.delete_disk('QA1:Disk1')
     end
 
     it "raises error when deleting disk fails" do
@@ -37,7 +37,7 @@ describe Bosh::Tier3Cloud::Cloud do
         end
       end
 
-      expect{cloud.delete_disk('Disk1')}.to raise_error
+      expect{cloud.delete_disk('QA1:Disk1')}.to raise_error
     end
   end
 end

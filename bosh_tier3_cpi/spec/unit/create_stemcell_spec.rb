@@ -6,10 +6,11 @@ require 'rest-client'
 
 describe Bosh::Tier3Cloud::Cloud do
   describe '#create_stemcell' do
-    it "is not implemented" do
+    it "returns the name of the stemcell" do
       cloud = make_cloud
-      
-      expect{cloud.create_stemcell(nil, nil)}.to raise_error Bosh::Clouds::NotImplemented
+
+      stemcell_properties = { 'name' => 'my-awesome-stemcell' }
+      expect(cloud.create_stemcell('/var/vcap', stemcell_properties)).to eq 'my-awesome-stemcell'
     end
   end
 end

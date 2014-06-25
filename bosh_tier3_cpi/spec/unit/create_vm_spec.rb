@@ -63,7 +63,7 @@ describe Bosh::Tier3Cloud::Cloud do
       cloud = make_cloud do |mock_client|
         # Stub and verify the CreateServer API call
         mock_client.should_receive(:post).with('/server/createserver/json', anything()) do |url, data|
-          expect(data[:Template]).to eq 'template'
+          expect(data[:Template]).to eq 'TEMPLATE'
           expect(data[:Alias]).to match(/[A-Z]{6}/)
           expect(data[:HardwareGroupID]).to eq 123
           expect(data[:CPU]).to eq 4
@@ -77,22 +77,8 @@ describe Bosh::Tier3Cloud::Cloud do
         end
 
         # Stub and verify .wait_for
-        mock_client.should_receive(:wait_for).with(123) do |&block|
+        mock_client.should_receive(:wait_for).with(123, 'QA1') do |&block|
           block.call({ 'Success' => true, 'Servers' => [created_vm_name] })
-        end
-
-        # Stub and verify the GetServer API call
-        mock_client.should_receive(:post).with('/server/getserver/json', anything()) do |url, data|
-          expect(data[:Name]).to eq created_vm_name
-
-          '{ "Success": true, "Server": { "IPAddress": "192.168.1.2"} }'
-        end
-
-        # Stub and verify the GetServerCredentials API call
-        mock_client.should_receive(:post).with('/server/getservercredentials/json', anything()) do |url, data|
-          expect(data[:Name]).to eq created_vm_name
-
-          '{ "Success": true, "Password": "password" }'
         end
       end
 

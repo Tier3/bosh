@@ -10,9 +10,9 @@ describe Bosh::Tier3Cloud::Cloud do
       cloud = make_cloud do |mock_client|
         # Stub and verify the attach disk API call
         mock_client.should_receive(:post).with('/virtualdisk/list/json', anything()) do |url,data|
-          expect(data['ServerName']).to eq 'QA1ELEABC01'
-          expect(data['AccountAlias']).to eq 'ELE'
-          expect(data['Location']).to eq 'QA1'
+          expect(data[:ServerName]).to eq 'QA1ELEABC01'
+          expect(data[:AccountAlias]).to eq 'ELE'
+          expect(data[:Location]).to eq 'QA1'
 
           {
               :VirtualDisks => [
@@ -29,7 +29,7 @@ describe Bosh::Tier3Cloud::Cloud do
       end
 
       disks = cloud.get_disks('QA1ELEABC01')
-      expect(disks).to eq ['Disk1']
+      expect(disks).to eq ['QA1:Disk1']
     end
 
     it "raises error when getting disks fails" do

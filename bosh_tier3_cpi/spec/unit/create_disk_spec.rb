@@ -25,20 +25,20 @@ describe Bosh::Tier3Cloud::Cloud do
     end
 
     it "creates disk and returns id" do
-      expected_disk_id = 'Disk1'
+      expected_disk_id = 'QA1:Disk1'
       cloud = make_cloud do |mock_client|
         # Stub and verify the create disk API call
         mock_client.should_receive(:post).with('/virtualdisk/create/json', anything()) do |url,data|
-          expect(data['SizeGB']).to eq 1
-          expect(data['AccountAlias']).to eq 'ELE'
-          expect(data['Location']).to eq 'QA1'
+          expect(data[:SizeGB]).to eq 1
+          expect(data[:AccountAlias]).to eq 'ELE'
+          expect(data[:Location]).to eq 'QA1'
 
           {
               :VirtualDisk => {
-                  :ID => expected_disk_id,
-                  :AccountAlias => data['AccountAlias'],
-                  :Location => data['Location'],
-                  :SizeGB => data['SizeGB']
+                  :ID => 'Disk1',
+                  :AccountAlias => data[:AccountAlias],
+                  :Location => data[:Location],
+                  :SizeGB => data[:SizeGB]
               },
               :Success => true,
               :Message => 'OK',
@@ -47,7 +47,7 @@ describe Bosh::Tier3Cloud::Cloud do
         end
       end
 
-      expect(cloud.create_disk(1024)).to eq expected_disk_id
+      expect(cloud.create_disk(1024, 'QA1FOO01')).to eq expected_disk_id
     end
 
     it "raises error when creating the disk fails" do
@@ -62,7 +62,7 @@ describe Bosh::Tier3Cloud::Cloud do
         end
       end
 
-      expect{cloud.create_disk(1024)}.to raise_error
+      expect{cloud.create_disk(1024, 'QA1FOO01')}.to raise_error
     end
   end
 end

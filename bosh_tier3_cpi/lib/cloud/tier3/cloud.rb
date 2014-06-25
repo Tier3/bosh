@@ -296,7 +296,7 @@ module Bosh::Tier3Cloud
         disk = resp_data['VirtualDisk']
 
         if success
-          disk['ID']
+          return make_disk_id(disk)
         else
           msg = "Error creating disk: #{resp_data['Message']} status code: #{resp_data['StatusCode']}"
           @logger.error(msg)
@@ -314,9 +314,9 @@ module Bosh::Tier3Cloud
         logger.info("Delete disk `#{disk_id}'")
 
         data = {
-          VirtualDiskID: disk_id,
+          VirtualDiskID: get_disk_cloud_id(disk_id),
           AccountAlias: api_properties['account_alias'],
-          Location: api_properties['location_alias']  # TODO: fix me!
+          Location: get_disk_location(disk_id)
         }
 
         response = @client.post('/virtualdisk/delete/json', data)
@@ -324,7 +324,7 @@ module Bosh::Tier3Cloud
         success = resp_data['Success']
 
         if not success
-          msg = "Error attaching disk: #{resp_data['Message']} status code: #{resp_data['StatusCode']}"
+          msg = "Error deleting disk: #{resp_data['Message']} status code: #{resp_data['StatusCode']}"
           @logger.error(msg)
           raise msg
         end
@@ -339,7 +339,7 @@ module Bosh::Tier3Cloud
         logger.info("Attach disk `#{disk_id}' to `#{instance_id}'")
 
         data = {
-          VirtualDiskID: disk_id,
+          VirtualDiskID: get_disk_cloud_id(disk_id),
           ServerName: instance_id,
           AccountAlias: api_properties['account_alias'],
           Location: get_location_of_vm(instance_id)
@@ -392,7 +392,7 @@ module Bosh::Tier3Cloud
         power_off_vm(instance_id)
 
         data = {
-          VirtualDiskID: disk_id,
+          VirtualDiskID: get_disk_cloud_id(disk_id),
           AccountAlias: api_properties['account_alias'],
           Location: get_location_of_vm(instance_id)
         }
@@ -445,7 +445,7 @@ module Bosh::Tier3Cloud
         end
 
         disks = resp_data['VirtualDisks']
-        disks.map { |disk| disk['ID'] }.compact
+        disks.map { |disk| make_disk_id(disk) }.compact
       end
     end
 
@@ -461,11 +461,12 @@ module Bosh::Tier3Cloud
         logger.info("Get size for disk `#{disk_id}'")
 
         data = {
+          VirtualDiskID: get_disk_cloud_id(disk_id),
           AccountAlias: api_properties['account_alias'],
-          Location: api_properties['location_alias']  # TODO: fix me!
+          Location: get_disk_location(disk_id)
         }
 
-        response = @client.post('/virtualdisk/list/json', data)
+        response = @client.post('/virtualdisk/get/json', data)
         resp_data = JSON.parse(response)
         success = resp_data['Success']
 
@@ -475,8 +476,7 @@ module Bosh::Tier3Cloud
           raise msg
         end
 
-        disks = resp_data['VirtualDisks']
-        return disks.find{|disk| disk['ID'] == disk_id}['SizeGB']
+        return resp_data['VirtualDisk']['SizeGB']
       end
     end
 
@@ -583,6 +583,20 @@ module Bosh::Tier3Cloud
     def get_location_of_vm(instance_id)
       server_info = get_vm(instance_id)
       return server_info["Location"]
+    end
+
+    def make_disk_id(disk)
+      return disk['Location'] + ':' + disk['ID']
+    end
+
+    def get_disk_cloud_id(id)
+      # TODO: the or clause is for temporary back-compat
+      return id[/.*:(.*)/, 1] || id
+    end
+
+    def get_disk_location(id)
+      # TODO: the or clause is for temporary back-compat
+      return id[/(.*):/, 1] || api_properties['location_alias']
     end
 
     def generate_disk_env

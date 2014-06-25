@@ -4,15 +4,25 @@ require 'rspec'
 require 'spec_helper'
 require 'rest-client'
 
+module Bosh::Tier3Cloud
+  class Cloud
+    def power_off_vm(instance_id)
+    end
+
+    def power_on_vm(instance_id)
+    end
+  end
+end
+
 describe Bosh::Tier3Cloud::Cloud do
   describe '#detach_disk' do
     it "detaches disk" do
       cloud = make_cloud do |mock_client|
         # Stub and verify the detach disk API call
         mock_client.should_receive(:post).with('/virtualdisk/detach/json', anything()) do |url,data|
-          expect(data['VirtualDiskID']).to eq 'Disk1'
-          expect(data['AccountAlias']).to eq 'ELE'
-          expect(data['Location']).to eq 'QA1'
+          expect(data[:VirtualDiskID]).to eq 'Disk1'
+          expect(data[:AccountAlias]).to eq 'ELE'
+          expect(data[:Location]).to eq 'QA1'
 
           {
               :Success => true,
@@ -22,7 +32,7 @@ describe Bosh::Tier3Cloud::Cloud do
         end
       end
 
-      cloud.detach_disk('QA1T3NRJPABC01','Disk1')
+      cloud.detach_disk('QA1T3NRJPABC01','QA1:Disk1')
     end
 
     it "raises error when detaching disk fails" do
@@ -37,7 +47,7 @@ describe Bosh::Tier3Cloud::Cloud do
         end
       end
 
-      expect{cloud.detach_disk('QA1T3NRJPABC01','Disk1')}.to raise_error
+      expect{cloud.detach_disk('QA1T3NRJPABC01','QA1:Disk1')}.to raise_error
     end
   end
 end
