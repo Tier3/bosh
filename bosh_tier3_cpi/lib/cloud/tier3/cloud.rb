@@ -625,7 +625,6 @@ module Bosh::Tier3Cloud
       disk_env = generate_disk_env
       env = generate_agent_env(vm_name, agent_id, disk_env, network_env)
       env["env"] = environment
-      @logger.debug("Setting VM env: #{env.pretty_inspect}")
 
       ip_address = get_agent_ip_address(vm_name)
       password = get_agent_password(vm_name)
@@ -635,6 +634,8 @@ module Bosh::Tier3Cloud
 
     def set_agent_env(ip_address, password, env)
       begin
+        @logger.debug("Setting VM (#{ip_address}) env: #{env.pretty_inspect}")
+
         Net::SCP.start(ip_address, 'root', { password: password }) do |scp|
           # write the initial settings.json file for the agent
           scp.upload!(StringIO.new(env.to_json), '/var/vcap/bosh/settings.json')
