@@ -8,7 +8,8 @@ module Bosh::Agent
     MANUAL_NETWORK_TYPE = "manual"
 
     SUPPORTED_NETWORK_TYPES = [
-        DHCP_NETWORK_TYPE
+        DHCP_NETWORK_TYPE,
+        MANUAL_NETWORK_TYPE
     ]
 
     # loads settings from /var/vcap/bosh/settings.json

@@ -91,11 +91,6 @@ module Bosh::Tier3Cloud
           raise ArgumentError, "Invalid network spec - only one network should be provided"
         end
 
-        network = networks.values[0]
-        unless network['type'] == 'dynamic'
-          raise ArgumentError, "Invalid network spec - network type must be dynamic"
-        end
-
         vlan_name = network['cloud_properties']['name']
         if vlan_name.nil? or vlan_name.empty?
           raise ArgumentError, "Invalid network spec, network -> cloud_properties -> name is nil or empty"
