@@ -30,7 +30,7 @@ describe Bosh::Tier3Cloud::Cloud do
         # Stub and verify the create disk API call
         mock_client.should_receive(:post).with('/virtualdisk/create/json', anything()) do |url,data|
           expect(data[:SizeGB]).to eq 1
-          expect(data[:AccountAlias]).to eq 'ELE'
+          expect(data[:AccountAlias]).to eq 'DEV'
           expect(data[:Location]).to eq 'QA1'
 
           {

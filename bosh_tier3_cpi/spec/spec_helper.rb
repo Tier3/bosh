@@ -10,7 +10,7 @@ module Bosh::Tier3Cloud
     end
 
     def get_agent_ip_address(vm_name)
-      return '192.168.1.2'
+      return '172.21.140.10'
     end
 
     def get_agent_password(vm_name)
@@ -29,7 +29,7 @@ def mock_cloud_options
         'url' => 'https://api.tier3.com',
         'key' => 'apikey',
         'password' => 'password',
-        'account_alias' => 'ELE',
+        'account_alias' => 'DEV',
         'location_alias' => 'QA1'
       }
     },

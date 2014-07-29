@@ -11,7 +11,7 @@ describe Bosh::Tier3Cloud::Cloud do
         # Stub and verify the delete disk API call
         mock_client.should_receive(:post).with('/virtualdisk/delete/json', anything()) do |url,data|
           expect(data[:VirtualDiskID]).to eq 'Disk1'
-          expect(data[:AccountAlias]).to eq 'ELE'
+          expect(data[:AccountAlias]).to eq 'DEV'
           expect(data[:Location]).to eq 'QA1'
 
           {

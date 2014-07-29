@@ -91,10 +91,12 @@ module Bosh::Tier3Cloud
           raise ArgumentError, "Invalid network spec - only one network should be provided"
         end
 
+        network = networks[networks.keys.first]
         vlan_name = network['cloud_properties']['name']
         if vlan_name.nil? or vlan_name.empty?
           raise ArgumentError, "Invalid network spec, network -> cloud_properties -> name is nil or empty"
         end
+        ip_address = network.has_key?('ip') ? network['ip'] : nil
 
         unless env.is_a?(Hash)
           raise ArgumentError, "Invalid env spec, Hash expected, #{env.class} provided"
@@ -135,6 +137,10 @@ module Bosh::Tier3Cloud
           AccountAlias: api_properties['account_alias'],
           LocationAlias: location_alias
         }
+
+        unless ip_address.nil?
+          data[:IPAddress] = ip_address
+        end
 
         created_vm_name = nil
 

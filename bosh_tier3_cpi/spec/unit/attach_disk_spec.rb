@@ -11,8 +11,8 @@ describe Bosh::Tier3Cloud::Cloud do
         # Stub and verify the attach disk API call
         mock_client.should_receive(:post).with('/virtualdisk/attach/json', anything()) do |url, data|
           expect(data[:VirtualDiskID]).to eq 'Disk1'
-          expect(data[:ServerName]).to eq 'QA1ELEABC01'
-          expect(data[:AccountAlias]).to eq 'ELE'
+          expect(data[:ServerName]).to eq 'QA1DEVABC01'
+          expect(data[:AccountAlias]).to eq 'DEV'
           expect(data[:Location]).to eq 'QA1'
 
           {
@@ -29,7 +29,7 @@ describe Bosh::Tier3Cloud::Cloud do
         end
       end
 
-      cloud.attach_disk('QA1ELEABC01','QA1:Disk1')
+      cloud.attach_disk('QA1DEVABC01','QA1:Disk1')
     end
 
     it "raises error when attaching disk fails" do
@@ -44,7 +44,7 @@ describe Bosh::Tier3Cloud::Cloud do
         end
       end
 
-      expect{cloud.attach_disk('QA1ELEABC01','QA1:Disk1')}.to raise_error
+      expect{cloud.attach_disk('QA1DEVABC01','QA1:Disk1')}.to raise_error
     end
   end
 end
